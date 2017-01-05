@@ -37,7 +37,7 @@ class EthernetHubWizard(VMWizard, Ui_EthernetHubWizard):
 
     def __init__(self, ethernet_hubs, parent):
 
-        super().__init__(ethernet_hubs, Builtin.instance().settings()["use_local_server"], parent)
+        super().__init__(ethernet_hubs, parent)
 
         self.setPixmap(QtWidgets.QWizard.LogoPixmap, QtGui.QPixmap(":/symbols/hub.svg"))
         self.uiNameWizardPage.registerField("name*", self.uiNameLineEdit)
@@ -50,7 +50,7 @@ class EthernetHubWizard(VMWizard, Ui_EthernetHubWizard):
         """
 
         ports = []
-        for port_number in range(1, self.uiPortsSpinBox.value() + 1):
+        for port_number in range(0, self.uiPortsSpinBox.value()):
             ports.append({"port_number": int(port_number),
                           "name": "Ethernet{}".format(port_number)})
 

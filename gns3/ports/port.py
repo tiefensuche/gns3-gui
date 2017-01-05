@@ -19,6 +19,10 @@
 Base class for port objects.
 """
 
+import sip
+
+from ..qt import qslot
+
 import logging
 log = logging.getLogger(__name__)
 
@@ -230,7 +234,8 @@ class Port:
                                                                port=self._destination_port.name())
         return ""
 
-    def setFree(self):
+    @qslot
+    def setFree(self, *args):
         """
         Frees this port.
         """
@@ -240,7 +245,8 @@ class Port:
         self._destination_node = None
         self._destination_port = None
         if self._port_label:
-            self._port_label.deleteLater()
+            if not sip.isdeleted(self._port_label):
+                self._port_label.deleteLater()
             self._port_label = None
 
     def isFree(self):

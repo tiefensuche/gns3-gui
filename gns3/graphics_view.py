@@ -895,7 +895,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         items = []
         for item in self.scene().selectedItems():
-            if isinstance(item, NodeItem) and item.node().initialized():
+            if isinstance(item, NodeItem) and item.node().initialized() and hasattr(item.node(), "configPage"):
                 items.append(item)
 
         if items:
@@ -1340,7 +1340,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if item.parentItem() is None:
                 if horizontal_pos is None:
                     horizontal_pos = item.y() + item.boundingRect().height() / 2
-                item.setPos(item.x(), horizontal_pos - item.boundingRect().height() / 2)
+                item.setX(item.x())
+                item.setY(horizontal_pos - item.boundingRect().height() / 2)
+                item.updateNode()
 
     def verticalAlignmentSlot(self):
         """
@@ -1353,7 +1355,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if item.parentItem() is None:
                 if vertical_position is None:
                     vertical_position = item.x() + item.boundingRect().width() / 2
-                item.setPos(vertical_position - item.boundingRect().width() / 2, item.y())
+                item.setX(vertical_position - item.boundingRect().width() / 2)
+                item.setY(item.y())
+                item.updateNode()
 
     def raiseLayerActionSlot(self):
         """
@@ -1365,6 +1369,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if item.parentItem() is None:
                 current_zvalue = item.zValue()
                 item.setZValue(current_zvalue + 1)
+                item.updateNode()
                 item.update()
 
     def lowerLayerActionSlot(self):
@@ -1377,6 +1382,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if item.parentItem() is None:
                 current_zvalue = item.zValue()
                 item.setZValue(current_zvalue - 1)
+                item.updateNode()
                 item.update()
 
                 if item.zValue() == -1:
@@ -1420,11 +1426,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if "server" in node_data:
             return ComputeManager.instance().getCompute(node_data["server"])
 
-        if "builtin" in node_data:
-            allow_local_server = True
-        else:
-            allow_local_server = module_instance.settings()["use_local_server"]
-        server = server_select(mainwindow, node_data.get("node_type"), allow_local_server=allow_local_server)
+        server = server_select(mainwindow, node_data.get("node_type"))
         if server is None:
             raise ModuleError("Please select a server")
         return server

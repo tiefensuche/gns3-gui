@@ -81,19 +81,22 @@ class LocalServer(QtCore.QObject):
     """
 
     def __init__(self, parent=None):
+        # Remember if the server was started by us or not
+        self._server_started_by_me = False
+        self._local_server_path = ""
+        self._local_server_process = None
 
         super().__init__()
         self._parent = parent
-        self._local_server_path = ""
-        self._local_server_process = None
         self._config_directory = LocalConfig.instance().configDirectory()
         self._settings = {}
         self.localServerSettings()
         self._port = self._settings.get("port", 3080)
 
         if not self._settings.get("auto_start", True):
-            self._http_client = HTTPClient(self._settings)
-            Controller.instance().setHttpClient(self._http_client)
+            if self._settings.get("host") is None:
+                self._http_client = HTTPClient(self._settings)
+                Controller.instance().setHttpClient(self._http_client)
         else:
             self._http_client = None
 
@@ -178,8 +181,7 @@ class LocalServer(QtCore.QObject):
                         QtWidgets.QMessageBox.Yes,
                         QtWidgets.QMessageBox.No)
                     if proceed == QtWidgets.QMessageBox.Yes:
-                        sudo(["chmod", "4750", path])
-                        sudo(["chown", "root:admin", path])
+                        sudo(["chown", "root:admin", path], ["chmod", "4750", path])
             except OSError as e:
                 QtWidgets.QMessageBox.critical(self.parent(), "uBridge", "Can't set root permissions to uBridge {}: {}".format(path, str(e)))
                 return False
@@ -243,13 +245,25 @@ class LocalServer(QtCore.QObject):
         # Settings have changed we need to restart the server
         if old_settings != self._settings:
             if self._settings["auto_start"]:
-                self.stopLocalServer(wait=True)
+                # We restart the local server only if we really need. Auth can be hot change
+                settings_require_restart = ('host', 'port', 'path')
+                need_restart = False
+                for s in settings_require_restart:
+                    if old_settings.get(s) != self._settings.get(s):
+                        need_restart = True
+
+                if need_restart:
+                    self.stopLocalServer(wait=True)
+
                 self.localServerAutoStartIfRequire()
             # If the controller is remote:
             else:
                 self.stopLocalServer(wait=True)
 
-            self._http_client = HTTPClient(self._settings)
+            if self._settings.get("host") is None:
+                self._http_client = None
+            else:
+                self._http_client = HTTPClient(self._settings)
             Controller.instance().setHttpClient(self._http_client)
 
     def shouldLocalServerAutoStart(self):
@@ -260,7 +274,7 @@ class LocalServer(QtCore.QObject):
         :returns: boolean
         """
 
-        return self._settings["auto_start"]
+        return self._settings["auto_start"] and self._settings["host"] is not None
 
     def localServerPath(self):
         """
@@ -293,7 +307,12 @@ class LocalServer(QtCore.QObject):
         """
 
         if not self.shouldLocalServerAutoStart():
+            self._http_client = HTTPClient(self._settings)
+            Controller.instance().setHttpClient(self._http_client)
             return
+
+        if self.isLocalServerRunning() and self._server_started_by_me:
+            return True
 
         # We check if two gui are not launched at the same time
         # to avoid killing the server of the other GUI
@@ -326,7 +345,7 @@ class LocalServer(QtCore.QObject):
             progress_dialog.show()
             if not progress_dialog.exec_():
                 return False
-
+        self._server_started_by_me = True
         self._http_client = HTTPClient(self._settings)
         Controller.instance().setHttpClient(self._http_client)
 
@@ -342,7 +361,7 @@ class LocalServer(QtCore.QObject):
         if sys.platform.startswith('win'):
             if not self._checkWindowsService("npf") and not self._checkWindowsService("npcap"):
                 QtWidgets.QMessageBox.critical(self.parent(), "Error", "The NPF or NPCAP service is not installed, please install Winpcap or Npcap and reboot.")
-                return
+                return False
 
         self._port = self._settings["port"]
 
@@ -350,13 +369,13 @@ class LocalServer(QtCore.QObject):
         local_server_path = self.localServerPath()
         if not local_server_path:
             log.warn("No local server is configured")
-            return
+            return False
         if not os.path.isfile(local_server_path):
             QtWidgets.QMessageBox.critical(self.parent(), "Local server", "Could not find local server {}".format(local_server_path))
-            return
+            return False
         elif not os.access(local_server_path, os.X_OK):
             QtWidgets.QMessageBox.critical(self.parent(), "Local server", "{} is not an executable".format(local_server_path))
-            return
+            return False
 
         try:
             # check if the local address still exists
@@ -506,6 +525,7 @@ class LocalServer(QtCore.QObject):
                 progress_dialog.exec_()
                 if self._local_server_process.returncode is None:
                     self._killLocalServer()
+            self._server_started_by_me = False
 
     def _killLocalServer(self):
         # the local server couldn't be stopped with the normal procedure
@@ -520,7 +540,7 @@ class LocalServer(QtCore.QObject):
             pass
         try:
             # wait for the server to stop for maximum 2 seconds
-            self._local_server_process.wait(timeout=2)
+            self._local_server_process.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proceed = QtWidgets.QMessageBox.question(self.parent(),
                                                      "Local server",

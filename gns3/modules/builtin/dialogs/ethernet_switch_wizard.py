@@ -37,7 +37,7 @@ class EthernetSwitchWizard(VMWizard, Ui_EthernetSwitchWizard):
 
     def __init__(self, ethernet_switches, parent):
 
-        super().__init__(ethernet_switches, Builtin.instance().settings()["use_local_server"], parent)
+        super().__init__(ethernet_switches, parent)
 
         self.setPixmap(QtWidgets.QWizard.LogoPixmap, QtGui.QPixmap(":/symbols/ethernet_switch.svg"))
         self.uiNameWizardPage.registerField("name*", self.uiNameLineEdit)
@@ -50,7 +50,7 @@ class EthernetSwitchWizard(VMWizard, Ui_EthernetSwitchWizard):
         """
 
         ports = []
-        for port_number in range(1, self.uiPortsSpinBox.value() + 1):
+        for port_number in range(0, self.uiPortsSpinBox.value()):
             ports.append({"port_number": int(port_number),
                           "name": "Ethernet{}".format(port_number),
                           "type": "access",

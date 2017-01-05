@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>574</width>
-    <height>523</height>
+    <width>594</width>
+    <height>645</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -24,6 +24,9 @@
        <string>General settings</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_4">
+       <property name="margin">
+        <number>10</number>
+       </property>
        <item row="4" column="0">
         <widget class="QLabel" name="uiRamLabel">
          <property name="text">
@@ -186,6 +189,9 @@
        <string>HDD</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_3">
+       <property name="margin">
+        <number>10</number>
+       </property>
        <item>
         <widget class="QGroupBox" name="uiHdaGroupBox">
          <property name="title">
@@ -406,6 +412,9 @@
        <string>CD/DVD</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_4">
+       <property name="margin">
+        <number>10</number>
+       </property>
        <item>
         <widget class="QGroupBox" name="uiCdromGroupBox">
          <property name="title">
@@ -459,6 +468,9 @@
        <string>Network</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_5">
+       <property name="margin">
+        <number>10</number>
+       </property>
        <item row="6" column="1">
         <widget class="QComboBox" name="uiAdapterTypesComboBox">
          <property name="sizePolicy">
@@ -580,6 +592,9 @@
        <string>Advanced settings</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_2">
+       <property name="margin">
+        <number>10</number>
+       </property>
        <item>
         <widget class="QGroupBox" name="uiLinuxBootGroupBox">
          <property name="title">
@@ -635,6 +650,32 @@
           </item>
           <item row="2" column="1" colspan="2">
            <widget class="QLineEdit" name="uiKernelCommandLineEdit"/>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="uiBiosImageGroupBox">
+         <property name="title">
+          <string>Bios</string>
+         </property>
+         <layout class="QHBoxLayout" name="horizontalLayout">
+          <item>
+           <widget class="QLabel" name="uiBiosLabel">
+            <property name="text">
+             <string>Bios image:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="uiBiosImageLineEdit"/>
+          </item>
+          <item>
+           <widget class="QToolButton" name="uiBiosImageToolButton">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -779,7 +820,7 @@
          <property name="sizeHint" stdset="0">
           <size>
            <width>20</width>
-           <height>90</height>
+           <height>40</height>
           </size>
          </property>
         </spacer>

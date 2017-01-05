@@ -24,7 +24,7 @@ from .qt import QtWidgets
 from .local_config import LocalConfig
 from .settings import PACKET_CAPTURE_SETTINGS
 from .dialogs.capture_dialog import CaptureDialog
-
+from .topology import Topology
 
 import logging
 log = logging.getLogger(__name__)
@@ -39,6 +39,17 @@ class PacketCapture:
         self._capture_reader_process = {}
         # Auto start the capture program for th link
         self._autostart = {}
+
+        Topology.instance().project_changed_signal.connect(self.killAllCapture)
+
+    def killAllCapture(self):
+        """
+        Kill all running captures (for example when change project)
+        """
+        for process in list(self._tail_process.values()):
+            process.kill()
+        self._tail_process = {}
+        self._capture_reader_process = {}
 
     def topology(self):
         from .topology import Topology
@@ -75,10 +86,13 @@ class PacketCapture:
     def _updatedLinkSlot(self, link_id):
         link = self.topology().getLink(link_id)
 
-        if link and link.capturing():
-            if self._autostart[link]:
-                self.startPacketCaptureReader(link)
-            log.info("Has successfully started capturing packets on {} to {}".format(link.id(), link.capture_file_path()))
+        if link:
+            if link.capturing():
+                if self._autostart[link]:
+                    self.startPacketCaptureReader(link)
+                log.info("Has successfully started capturing packets on {} to {}".format(link.id(), link.capture_file_path()))
+            else:
+                self.stopPacketCaptureReader(link)
 
     def stopCapture(self, link):
         """
@@ -96,6 +110,14 @@ class PacketCapture:
         Starts the packet capture reader.
         """
         self._startPacketCommand(link, self.settings()["packet_capture_reader_command"])
+
+    def stopPacketCaptureReader(self, link):
+        """
+        Stop the packet capture reader
+        """
+        if link in self._tail_process and self._tail_process[link].poll() is None:
+            self._tail_process[link].kill()
+            del self._tail_process[link]
 
     def startPacketCaptureAnalyzer(self, link):
         """

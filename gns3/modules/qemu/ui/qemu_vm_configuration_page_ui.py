@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/Users/noplay/code/gns3/gns3-gui/gns3/modules/qemu/ui/qemu_vm_configuration_page.ui'
+# Form implementation generated from reading ui file '/home/grossmj/PycharmProjects/gns3-gui/gns3/modules/qemu/ui/qemu_vm_configuration_page.ui'
 #
-# Created by: PyQt5 UI code generator 5.6
+# Created: Thu Jan  5 14:49:45 2017
+#      by: PyQt5 UI code generator 5.2.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -11,7 +12,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_QemuVMConfigPageWidget(object):
     def setupUi(self, QemuVMConfigPageWidget):
         QemuVMConfigPageWidget.setObjectName("QemuVMConfigPageWidget")
-        QemuVMConfigPageWidget.resize(574, 523)
+        QemuVMConfigPageWidget.resize(594, 645)
         self.verticalLayout = QtWidgets.QVBoxLayout(QemuVMConfigPageWidget)
         self.verticalLayout.setObjectName("verticalLayout")
         self.uiQemutabWidget = QtWidgets.QTabWidget(QemuVMConfigPageWidget)
@@ -19,7 +20,7 @@ class Ui_QemuVMConfigPageWidget(object):
         self.uiGeneralSettingsTab = QtWidgets.QWidget()
         self.uiGeneralSettingsTab.setObjectName("uiGeneralSettingsTab")
         self.gridLayout_4 = QtWidgets.QGridLayout(self.uiGeneralSettingsTab)
-        self.gridLayout_4.setContentsMargins(0, 0, 0, 0)
+        self.gridLayout_4.setContentsMargins(10, 10, 10, 10)
         self.gridLayout_4.setObjectName("gridLayout_4")
         self.uiRamLabel = QtWidgets.QLabel(self.uiGeneralSettingsTab)
         self.uiRamLabel.setObjectName("uiRamLabel")
@@ -100,7 +101,7 @@ class Ui_QemuVMConfigPageWidget(object):
         self.uiHddTab = QtWidgets.QWidget()
         self.uiHddTab.setObjectName("uiHddTab")
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.uiHddTab)
-        self.verticalLayout_3.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_3.setContentsMargins(10, 10, 10, 10)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
         self.uiHdaGroupBox = QtWidgets.QGroupBox(self.uiHddTab)
         self.uiHdaGroupBox.setObjectName("uiHdaGroupBox")
@@ -216,7 +217,7 @@ class Ui_QemuVMConfigPageWidget(object):
         self.uiCdromTab = QtWidgets.QWidget()
         self.uiCdromTab.setObjectName("uiCdromTab")
         self.verticalLayout_4 = QtWidgets.QVBoxLayout(self.uiCdromTab)
-        self.verticalLayout_4.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_4.setContentsMargins(10, 10, 10, 10)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
         self.uiCdromGroupBox = QtWidgets.QGroupBox(self.uiCdromTab)
         self.uiCdromGroupBox.setObjectName("uiCdromGroupBox")
@@ -242,7 +243,7 @@ class Ui_QemuVMConfigPageWidget(object):
         self.uiNetworkTab = QtWidgets.QWidget()
         self.uiNetworkTab.setObjectName("uiNetworkTab")
         self.gridLayout_5 = QtWidgets.QGridLayout(self.uiNetworkTab)
-        self.gridLayout_5.setContentsMargins(0, 0, 0, 0)
+        self.gridLayout_5.setContentsMargins(10, 10, 10, 10)
         self.gridLayout_5.setObjectName("gridLayout_5")
         self.uiAdapterTypesComboBox = QtWidgets.QComboBox(self.uiNetworkTab)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
@@ -304,7 +305,7 @@ class Ui_QemuVMConfigPageWidget(object):
         self.uiAdvancedSettingsTab = QtWidgets.QWidget()
         self.uiAdvancedSettingsTab.setObjectName("uiAdvancedSettingsTab")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.uiAdvancedSettingsTab)
-        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_2.setContentsMargins(10, 10, 10, 10)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.uiLinuxBootGroupBox = QtWidgets.QGroupBox(self.uiAdvancedSettingsTab)
         self.uiLinuxBootGroupBox.setObjectName("uiLinuxBootGroupBox")
@@ -337,6 +338,20 @@ class Ui_QemuVMConfigPageWidget(object):
         self.uiKernelCommandLineEdit.setObjectName("uiKernelCommandLineEdit")
         self.gridLayout_2.addWidget(self.uiKernelCommandLineEdit, 2, 1, 1, 2)
         self.verticalLayout_2.addWidget(self.uiLinuxBootGroupBox)
+        self.uiBiosImageGroupBox = QtWidgets.QGroupBox(self.uiAdvancedSettingsTab)
+        self.uiBiosImageGroupBox.setObjectName("uiBiosImageGroupBox")
+        self.horizontalLayout = QtWidgets.QHBoxLayout(self.uiBiosImageGroupBox)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.uiBiosLabel = QtWidgets.QLabel(self.uiBiosImageGroupBox)
+        self.uiBiosLabel.setObjectName("uiBiosLabel")
+        self.horizontalLayout.addWidget(self.uiBiosLabel)
+        self.uiBiosImageLineEdit = QtWidgets.QLineEdit(self.uiBiosImageGroupBox)
+        self.uiBiosImageLineEdit.setObjectName("uiBiosImageLineEdit")
+        self.horizontalLayout.addWidget(self.uiBiosImageLineEdit)
+        self.uiBiosImageToolButton = QtWidgets.QToolButton(self.uiBiosImageGroupBox)
+        self.uiBiosImageToolButton.setObjectName("uiBiosImageToolButton")
+        self.horizontalLayout.addWidget(self.uiBiosImageToolButton)
+        self.verticalLayout_2.addWidget(self.uiBiosImageGroupBox)
         self.uiOptimizationGroupBox = QtWidgets.QGroupBox(self.uiAdvancedSettingsTab)
         self.uiOptimizationGroupBox.setObjectName("uiOptimizationGroupBox")
         self.gridLayout = QtWidgets.QGridLayout(self.uiOptimizationGroupBox)
@@ -389,12 +404,8 @@ class Ui_QemuVMConfigPageWidget(object):
         self.uiACPIShutdownCheckBox = QtWidgets.QCheckBox(self.groupBox)
         self.uiACPIShutdownCheckBox.setObjectName("uiACPIShutdownCheckBox")
         self.gridLayout_3.addWidget(self.uiACPIShutdownCheckBox, 2, 0, 1, 2)
-        self.uiQemuOptionsLineEdit.raise_()
-        self.uiQemuOptionsLabel.raise_()
-        self.uiACPIShutdownCheckBox.raise_()
-        self.uiBaseVMCheckBox.raise_()
         self.verticalLayout_2.addWidget(self.groupBox)
-        spacerItem4 = QtWidgets.QSpacerItem(20, 90, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacerItem4 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout_2.addItem(spacerItem4)
         self.uiQemutabWidget.addTab(self.uiAdvancedSettingsTab, "")
         self.verticalLayout.addWidget(self.uiQemutabWidget)
@@ -461,6 +472,9 @@ class Ui_QemuVMConfigPageWidget(object):
         self.uiKernelImageLabel.setText(_translate("QemuVMConfigPageWidget", "Kernel image:"))
         self.uiInitrdToolButton.setText(_translate("QemuVMConfigPageWidget", "&Browse..."))
         self.uiKernelImageToolButton.setText(_translate("QemuVMConfigPageWidget", "&Browse..."))
+        self.uiBiosImageGroupBox.setTitle(_translate("QemuVMConfigPageWidget", "Bios"))
+        self.uiBiosLabel.setText(_translate("QemuVMConfigPageWidget", "Bios image:"))
+        self.uiBiosImageToolButton.setText(_translate("QemuVMConfigPageWidget", "Browse..."))
         self.uiOptimizationGroupBox.setTitle(_translate("QemuVMConfigPageWidget", "Optimizations"))
         self.uiActivateCPUThrottlingCheckBox.setText(_translate("QemuVMConfigPageWidget", "Activate CPU throttling"))
         self.uiCPUThrottlingLabel.setText(_translate("QemuVMConfigPageWidget", "Percentage of CPU allowed:"))

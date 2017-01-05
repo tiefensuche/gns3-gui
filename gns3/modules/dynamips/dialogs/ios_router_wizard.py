@@ -21,8 +21,10 @@ Wizard for IOS routers.
 
 import os
 import re
+import uuid
 
-from gns3.qt import QtCore, QtGui, QtWidgets
+
+from gns3.qt import QtCore, QtGui, QtWidgets, qslot
 from gns3.node import Node
 from gns3.topology import Topology
 from gns3.utils.run_in_terminal import RunInTerminal
@@ -67,7 +69,7 @@ class IOSRouterWizard(VMWithImagesWizard, Ui_IOSRouterWizard):
 
     def __init__(self, ios_routers, parent):
 
-        super().__init__(ios_routers, Dynamips.instance().settings()["use_local_server"], parent)
+        super().__init__(ios_routers, parent)
         self.setPixmap(QtWidgets.QWizard.LogoPixmap, QtGui.QPixmap(":/symbols/router.svg"))
 
         self.uiTestIOSImagePushButton.clicked.connect(self._testIOSImageSlot)
@@ -79,6 +81,10 @@ class IOSRouterWizard(VMWithImagesWizard, Ui_IOSRouterWizard):
         self._router = None
         # Validate the Idle PC value
         self._idle_valid = False
+
+        # True if we have create a temporary project for computing IDLE PC
+        self._project_created = False
+
         idle_pc_rgx = QtCore.QRegExp("^(0x[0-9a-fA-F]{8})?$")
         validator = QtGui.QRegExpValidator(idle_pc_rgx, self)
         self.uiIdlepcLineEdit.setValidator(validator)
@@ -213,6 +219,21 @@ class IOSRouterWizard(VMWithImagesWizard, Ui_IOSRouterWizard):
         """
         Slot for the idle-PC finder.
         """
+        if Topology.instance().project() is None:
+            project = Topology.instance().createLoadProject({"project_name": str(uuid.uuid4())})
+            project.project_updated_signal.connect(self._projectCreatedSlot)
+        else:
+            self._projectCreatedSlot()
+
+    @qslot
+    def _projectCreatedSlot(self, *args):
+        if Topology.instance().project() is None:
+            return
+        try:
+            Topology.instance().project().project_updated_signal.disconnect(self._projectCreatedSlot)
+            self._project_created = True
+        except TypeError:
+            pass  # If the slot is not connected (project already created)
 
         module = Dynamips.instance()
         platform = self.uiPlatformComboBox.currentText()
@@ -220,9 +241,6 @@ class IOSRouterWizard(VMWithImagesWizard, Ui_IOSRouterWizard):
         ram = self.uiRamSpinBox.value()
         router_class = PLATFORM_TO_CLASS[platform]
 
-        if Topology.instance().project() is None:
-            QtWidgets.QMessageBox.critical(self, "Idle PC", "You need to create a project before computing Idle PC")
-            return False
         self._router = router_class(module, ComputeManager.instance().getCompute(self._compute_id), Topology.instance().project())
         self._router.create(ios_image, ram, name="AUTOIDLEPC")
         self._router.created_signal.connect(self.createdSlot)
@@ -262,7 +280,8 @@ class IOSRouterWizard(VMWithImagesWizard, Ui_IOSRouterWizard):
 
         QtWidgets.QMessageBox.critical(self, "Idle-PC finder", "Could not create IOS router: {}".format(message))
 
-    def _computeAutoIdlepcCallback(self, result, error=False, **kwargs):
+    @qslot
+    def _computeAutoIdlepcCallback(self, result, error=False, *args, **kwargs):
         """
         Callback for computeAutoIdlepc.
 
@@ -270,7 +289,11 @@ class IOSRouterWizard(VMWithImagesWizard, Ui_IOSRouterWizard):
         :param error: indicates an error (boolean)
         """
 
-        if self._router:
+        if self._project_created:
+            Topology.instance().deleteProject()
+            self._project_created = False
+            self._router = None
+        elif self._router:
             self._router.delete()
             self._router = None
         if error:

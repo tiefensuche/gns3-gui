@@ -134,18 +134,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._recent_file_actions_separator.setVisible(False)
         self.updateRecentFileActions()
 
-        # add recent file actions to the File menu
+        # add recent projects to the File menu
         for i in range(0, self._max_recent_files):
-            action = QtWidgets.QAction(self.uiProjectMenu)
+            action = QtWidgets.QAction(self.uiFileMenu)
             action.setVisible(False)
             action.triggered.connect(self.openRecentProjectSlot)
             self._recent_project_actions.append(action)
-        self._recent_project_actions_separator = self.uiProjectMenu.addSeparator()
+        self._recent_project_actions_separator = self.uiFileMenu.addSeparator()
         self._recent_project_actions_separator.setVisible(False)
-
-        self.uiProjectMenu.addActions(self._recent_project_actions)
-
-        self.updateRecentProjectActions()
+        self.uiFileMenu.addActions(self._recent_project_actions)
 
         # set the window icon
         self.setWindowIcon(QtGui.QIcon(":/images/gns3.ico"))
@@ -426,11 +423,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 return
             self._appliance_wizard.show()
             self._appliance_wizard.exec_()
-        else:
-            if Controller.instance().isRemote():
-                QtWidgets.QMessageBox.critical(self, "Project", "You can't remote open a .gns3 please use import / export in order to provide to the remote server the full project")
-                return
+        elif path.endswith(".gns3"):
             Topology.instance().loadProject(path)
+        else:
+            try:
+                extension = path.split('.')[1]
+                QtWidgets.QMessageBox.critical(self, "File open", "Unsupported file extension {} for {}".format(extension, path))
+            except IndexError:
+                QtWidgets.QMessageBox.critical(self, "File open", "Missing file extension for {}".format(path))
 
     def _projectChangedSlot(self):
         """
@@ -764,7 +764,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         with Progress.instance().context(min_duration=0):
             setup_wizard = SetupWizard(self)
             setup_wizard.show()
-            if setup_wizard.exec_():
+            res = setup_wizard.exec_()
+            # start and connect to the local server if needed
+            LocalServer.instance().localServerAutoStartIfRequire()
+            if res:
                 self._newApplianceActionSlot()
 
     def _aboutQtActionSlot(self):
@@ -1006,9 +1009,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._setStyle(self._settings.get("style"))
 
         Controller.instance().connected_signal.connect(self._controllerConnectedSlot)
-
-        # start and connect to the local server if needed
-        LocalServer.instance().localServerAutoStartIfRequire()
+        Controller.instance().project_list_updated_signal.connect(self.updateRecentProjectActions)
 
         self._analytics_client.sendScreenView("Main Window")
         self.uiGraphicsView.setEnabled(False)
@@ -1017,6 +1018,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if not self._settings["hide_setup_wizard"]:
             self._setupWizardActionSlot()
         else:
+            # start and connect to the local server if needed
+            LocalServer.instance().localServerAutoStartIfRequire()
             if self._open_file_at_startup:
                 self.loadPath(self._open_file_at_startup)
                 self._open_file_at_startup = None
@@ -1082,6 +1085,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             except ValueError:  # Compatible with 2.0.0a1
                 project_path = None
                 project_id, project_name = project.split(":", maxsplit=1)
+
+            if project_id not in [p["project_id"] for p in Controller.instance().projects()]:
+                continue
+
             action = self._recent_project_actions[index]
             if project_path and os.path.exists(project_path):
                 action.setText(" {}. {} [{}]".format(index + 1, project_name, project_path))
@@ -1089,14 +1096,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             else:
                 action.setText(" {}. {}".format(index + 1, project_name))
                 action.setData((project_id, ))
-            action.setVisible(True)
             index += 1
 
-        for index in range(size + 1, self._max_recent_files):
-            self._recent_project_actions[index].setVisible(False)
+        if Controller.instance().isRemote():
+            for index in range(0, size):
+                self._recent_project_actions[index].setVisible(True)
+            for index in range(size + 1, self._max_recent_files):
+                self._recent_project_actions[index].setVisible(False)
 
-        if size:
-            self._recent_project_actions_separator.setVisible(True)
+            if size:
+                self._recent_project_actions_separator.setVisible(True)
+        else:
+            for action in self._recent_project_actions:
+                action.setVisible(False)
+            self._recent_project_actions_separator.setVisible(False)
 
     def updateRecentFileSettings(self, path):
         """

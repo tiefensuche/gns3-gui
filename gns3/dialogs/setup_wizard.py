@@ -25,8 +25,10 @@ from gns3.local_server import LocalServer
 from gns3.utils.progress_dialog import ProgressDialog
 from gns3.utils.wait_for_connection_worker import WaitForConnectionWorker
 
+from ..settings import DEFAULT_LOCAL_SERVER_HOST
 from ..ui.setup_wizard_ui import Ui_SetupWizard
 from ..version import __version__
+
 
 import logging
 log = logging.getLogger(__name__)
@@ -202,12 +204,18 @@ class SetupWizard(QtWidgets.QWizard, Ui_SetupWizard):
 
         elif self.page(page_id) == self.uiRemoteControllerWizardPage:
             local_server_settings = LocalServer.instance().localServerSettings()
-            self.uiRemoteMainServerHostLineEdit.setText(local_server_settings["host"])
+            if local_server_settings["host"] is None:
+                self.uiRemoteMainServerHostLineEdit.setText(DEFAULT_LOCAL_SERVER_HOST)
+                self.uiRemoteMainServerAuthCheckBox.setChecked(False)
+                self.uiRemoteMainServerUserLineEdit.setText("")
+                self.uiRemoteMainServerPasswordLineEdit.setText("")
+            else:
+                self.uiRemoteMainServerHostLineEdit.setText(local_server_settings["host"])
+                self.uiRemoteMainServerAuthCheckBox.setChecked(local_server_settings["auth"])
+                self.uiRemoteMainServerUserLineEdit.setText(local_server_settings["user"])
+                self.uiRemoteMainServerPasswordLineEdit.setText(local_server_settings["password"])
             self.uiRemoteMainServerPortSpinBox.setValue(local_server_settings["port"])
-            self.uiRemoteMainServerUserLineEdit.setText(local_server_settings["user"])
-            self.uiRemoteMainServerPasswordLineEdit.setText(local_server_settings["password"])
             self.uiRemoteMainServerProtocolComboBox.setCurrentText(local_server_settings["protocol"])
-            self.uiRemoteMainServerAuthCheckBox.setChecked(local_server_settings["auth"])
         elif self.page(page_id) == self.uiLocalServerStatusWizardPage:
             self._refreshLocalServerStatusSlot()
 
@@ -238,12 +246,12 @@ class SetupWizard(QtWidgets.QWizard, Ui_SetupWizard):
         Refresh the local server status page
         """
         if Controller.instance().connected():
-            self.uiLocalServerStatusLabel.setText("Connection to local server successfull")
+            self.uiLocalServerStatusLabel.setText("Connection to local server successful")
         elif Controller.instance().connecting():
             self.uiLocalServerStatusLabel.setText("Please wait connection to the GNS3 server")
         else:
             local_server_settings = LocalServer.instance().localServerSettings()
-            self.uiLocalServerStatusLabel.setText("Connection to local server failed.\n* Make sure GNS3 is authorized in your firewall.\n* Go back and try to change server port\n* Please check in a browser if you can connect to {protocol}://{host}:{port}.\n* If it's not working try to run {path} in a terminal to see if you have an error.".format(protocol=local_server_settings["protocol"], host=local_server_settings["host"], port=local_server_settings["port"], path=local_server_settings["path"]))
+            self.uiLocalServerStatusLabel.setText("Connection to local server failed.\n* Make sure GNS3 is allowed in your firewall.\n* Go back and try to change the server port\n* Please check with a browser if you can connect to {protocol}://{host}:{port}.\n* Try to run {path} in a terminal to see if you have an error if the above does not work.".format(protocol=local_server_settings["protocol"], host=local_server_settings["host"], port=local_server_settings["port"], path=local_server_settings["path"]))
 
     def _GNS3VMSettings(self):
         return self._gns3_vm_settings
@@ -313,6 +321,7 @@ class SetupWizard(QtWidgets.QWizard, Ui_SetupWizard):
                 return False
 
             LocalServer.instance().updateLocalServerSettings(local_server_settings)
+            LocalServer.instance().localServerAutoStartIfRequire()
 
         elif self.currentPage() == self.uiRemoteControllerWizardPage:
             local_server_settings = LocalServer.instance().localServerSettings()
@@ -331,18 +340,6 @@ class SetupWizard(QtWidgets.QWizard, Ui_SetupWizard):
                 vm_settings = self._GNS3VMSettings()
                 vm_settings["enable"] = False
                 self._setGNS3VMSettings(vm_settings)
-
-                # update the modules so they use the local server
-                from gns3.modules import Dynamips
-                Dynamips.instance().setSettings({"use_local_server": True})
-                if sys.platform.startswith("linux"):
-                    # IOU only works on Linux
-                    from gns3.modules import IOU
-                    IOU.instance().setSettings({"use_local_server": True})
-                from gns3.modules import Qemu
-                Qemu.instance().setSettings({"use_local_server": True})
-                from gns3.modules import VPCS
-                VPCS.instance().setSettings({"use_local_server": True})
 
         elif self.currentPage() == self.uiLocalServerStatusWizardPage:
             if not Controller.instance().connected():
@@ -397,6 +394,10 @@ class SetupWizard(QtWidgets.QWizard, Ui_SetupWizard):
         if result:
             settings["hide_setup_wizard"] = True
         else:
+            local_server_settings = LocalServer.instance().localServerSettings()
+            if local_server_settings["host"] is None:
+                local_server_settings["host"] = DEFAULT_LOCAL_SERVER_HOST
+                LocalServer.instance().updateLocalServerSettings(local_server_settings)
             settings["hide_setup_wizard"] = self.uiShowCheckBox.isChecked()
 
         self.parentWidget().setSettings(settings)

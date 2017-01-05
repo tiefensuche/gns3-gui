@@ -101,11 +101,25 @@ class ComputeManager(QtCore.QObject):
         else:
             self.updated_signal.emit(compute_id)
 
+    def computeIsTheRemoteGNS3VM(self, compute):
+        """
+        :returns: Boolean True if the remote server is the remote GNS3 VM
+        """
+        if compute.id() != "local" and compute.id() != "vm":
+            if self.vmCompute() and "GNS3 VM ({})".format(compute.name()) == self.vmCompute().name():
+                return True
+        return False
+
     def computes(self):
         """
         :returns: List of computes nodes
         """
-        return list(self._computes.values())
+        computes = []
+        for compute in self._computes.values():
+            # We filter the remote GNS3 VM compute from the computes list
+            if not self.computeIsTheRemoteGNS3VM(compute):
+                computes.append(compute)
+        return computes
 
     def vmCompute(self):
         """
@@ -180,12 +194,14 @@ class ComputeManager(QtCore.QObject):
                         log.debug("Update compute %s", compute_id)
                         self._controller.put("/computes/" + compute_id, None, body=c.__json__())
                         self._computes[compute_id] = c
+                        self.updated_signal.emit(compute_id)
         # Create the new nodes
         for compute in computes:
             if compute.id() not in self._computes:
                 log.debug("Create compute %s", compute.id())
                 self._controller.post("/computes", None, body=compute.__json__())
                 self._computes[compute.id()] = compute
+                self.created_signal.emit(compute.id())
 
     @staticmethod
     def reset():

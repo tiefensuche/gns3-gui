@@ -1,5 +1,91 @@
 # Change Log
 
+## 2.0.0 beta 2 20/12/2016
+
+* AUX console button text change in MainWindow.
+* Fix GNS3 Client not connecting to remote controller
+* Delete from project list deleted projects
+* Keep a shared list of projects internally
+* Fix recent files in new project dialog
+* Move recent projects to the file menu
+* Fix Tail process for wireshark trace not killed when we change project
+* Move project menu items. Ref #1713.
+* Display recent files for local controller, recent project for remote controller
+* Do not display the remote server if the server is use as a GNS3 VM
+* If the notification stream is stopped by something we auto reconnect
+* Ignore system proxy to avoid trouble with "Security Suites"
+* Avoid close and delete a project at the same time
+* Alpha sort of servers summaries
+* Fix new remote server doesn't show up in compute summary
+* Fix interface number for Switch & Hub templates
+* Fix sync of node alignements with the server
+* Fix rare condition when you close a project and add a node
+* Options -q for quiet startup
+* Fix an error when apply permission on OSX
+* Support Qemu cpus in GNS3A
+* Support for BIOS images
+* Fix IdlePC can't be found during setup wizard
+
+## 2.0.0 beta 1 07/12/2016
+
+* Use osascript on OSX for asking admin permission
+* Change the method for creating the tmpdir for symbols cache
+* Fix a connection error at the end of the setup wizard
+* Change how some tabs are organized or named.
+* General settings => local settings
+* Drop more reference to use local server
+* Remove local server checkbox from preferences
+* Make sure to not start local server during setup wizard remote server
+* Fix Error when editing IOS image created using .gns3a file
+* Fix test suites around sip deleted
+* Do not auto start the local server in setup wizard
+* On OSX execute all sudo in a single operation
+* Catch key Compute  is missing during conversion error
+* Fix rare crash in gns3.dialogs.appliance_wizard in validateCurrentPage
+* Fix  AttributeError: 'Nat' object has no attribute 'configPage'
+* Catch one more RuntimeError: wrapped C/C++
+* Fix a rare crash in port
+* Fix a rare crash when set symbol
+* Fix a potential crash
+* Fix a potential crash at exit
+* Fix crashes
+* Remove unused settings from general preferences
+* Catch error when you try to import a IOU bin as a licence
+* Fix rare crash when exiting
+* Fix crash when freeing some ressources
+* Fix timeout when exporting large project
+* Avoid a rare crash when we free a port
+* Fix you can't download symbols after you got an error
+
+## 2.0.0 alpha 4 24/11/2016
+* Mark preferences changes when you change a QPlainTextEdit
+* Force the VPCS config initial file
+* Replace the IOU licence path by an input text
+* Fix 403 when loading a remote project
+* Fix some possible server not starting on Windows
+* Hide the connection refused dialog when we success to reconnect
+* Avoid a rare crash when changing topology
+* When loading another project disconnect from current project
+* Do not crash if we can't list remote list of GNS3 VM engines
+* Init the VPCS base config
+* Fix invalid ressource path on OSX
+* Fix segfault when deleting a node
+* Do not download multiple time the same symbol
+* Kill tail process when capture stop
+* Fix Topology summary contain non existing links
+* Fix a rare crash when deleting a link
+* Fix export of debug informations when not connected to the controller
+* Fix AttributeError: 'DockerVM' object has no attribute 'server'
+* Fix error message if you double click on builtin switch
+* Fix a rare crash in packet capture
+* Restrict ubridge to admin users on OSX
+* Natural sort of Nodes in topology summary
+* Drop serial console type
+* Display an error if you try to open a 0.8.x file
+* Fix tab order when editing a compute
+* Fix a crash in ethernet switch settings
+* Dissallow unknown extensions
+
 ## 2.0.0 alpha 3 28/10/2016
 * Fix error when opening a project from the cli with a gns3 installed via setup.py
 * Fix a rare crash in snapshot dialog

@@ -138,7 +138,7 @@ class Topology(QtCore.QObject):
         self.project_changed_signal.emit()
 
     def _projectUpdatedSlot(self):
-        if not self._project:
+        if not self._project or not self._project.filesDir() or not self._project.filename():
             return
         self._main_window.setWindowTitle("{name} - GNS3".format(name=self._project.name()))
         project_file = os.path.join(self._project.filesDir(), self._project.filename())
@@ -146,6 +146,7 @@ class Topology(QtCore.QObject):
         if os.path.exists(project_file):
             self._main_window.updateRecentFileSettings(project_file)
             self._main_window.updateRecentFileActions()
+
         self._main_window.updateRecentProjectsSettings(self._project.id(), self._project.name(), self._project.path())
         self._main_window.updateRecentProjectActions()
 
@@ -153,6 +154,8 @@ class Topology(QtCore.QObject):
         """
         Create load a project based on settings, not on the .gns3
         """
+        self.setProject(None)
+
         from .project import Project
         project = Project()
 
@@ -172,6 +175,7 @@ class Topology(QtCore.QObject):
             self.setProject(project)
             project.create()
             self._main_window.uiStatusBar.showMessage("Project created", 2000)
+        return project
 
     def loadProject(self, path):
         """
@@ -183,6 +187,7 @@ class Topology(QtCore.QObject):
         if not Controller.instance().connected():
             self._project_to_load_path = path
             return
+
         from .project import Project
         self.setProject(Project())
         self._project.load(path)
@@ -190,6 +195,8 @@ class Topology(QtCore.QObject):
         return True
 
     def editReadme(self):
+        if self.project() is None:
+            return
         dialog = FileEditorDialog(self.project(), "/README.txt", parent=self._main_window, default="Project title\n\nAuthor: Grace Hopper <grace@example.org>\n\nThis project is about...")
         dialog.show()
         dialog.exec_()
@@ -269,7 +276,6 @@ It is your responsability to check if you have the right to distribute the image
     def deleteProject(self):
         if self._project:
             self._project.destroy()
-        self.setProject(None)
 
     def addNode(self, node):
         """
@@ -471,6 +477,10 @@ It is your responsability to check if you have the right to distribute the image
 
         :param node_data: node data to create a new node
         """
+
+        if not self._project:
+            return  # The project has been deleted during the creation request
+
         node_module = None
         for module in MODULES:
             instance = module.instance()

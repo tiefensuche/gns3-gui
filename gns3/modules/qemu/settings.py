@@ -22,7 +22,6 @@ Default QEMU settings.
 from gns3.node import Node
 
 QEMU_SETTINGS = {
-    "use_local_server": True,
     "enable_kvm": True,
 }
 
@@ -45,6 +44,7 @@ QEMU_VM_SETTINGS = {
     "hdc_disk_interface": "ide",
     "hdd_disk_interface": "ide",
     "cdrom_image": "",
+    "bios_image": "",
     "boot_priority": "c",
     "console_type": "telnet",
     "ram": 256,

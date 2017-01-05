@@ -19,7 +19,7 @@ import os
 import hashlib
 import tempfile
 
-from .qt import QtCore, QtGui, QtWidgets, qpartial
+from .qt import QtCore, QtGui, QtWidgets, qpartial, qslot
 from .symbol import Symbol
 from .local_server_config import LocalServerConfig
 from .settings import LOCAL_SERVER_SETTINGS
@@ -35,15 +35,21 @@ class Controller(QtCore.QObject):
     connected_signal = QtCore.Signal()
     disconnected_signal = QtCore.Signal()
     connection_failed_signal = QtCore.Signal()
+    project_list_updated_signal = QtCore.Signal()
 
     def __init__(self, parent=None):
         super().__init__()
         self._connected = False
         self._connecting = False
-        self._cache_directory = tempfile.TemporaryDirectory()
+        self._cache_directory = tempfile.mkdtemp()
         self._http_client = None
         # If it's the first error we display an alert box to the user
         self._first_error = True
+        self._error_dialog = None
+        self._projects = []
+
+        # If we do multiple call in order to download the same symbol we queue them
+        self._static_asset_download_queue = {}
 
     def host(self):
         return self._http_client.host()
@@ -106,18 +112,27 @@ class Controller(QtCore.QObject):
                 self._connecting = False
                 self.connection_failed_signal.emit()
                 if "message" in result:
-                    QtWidgets.QMessageBox.critical(self.parent(), "Connection", result["message"])
+                    self._error_dialog = QtWidgets.QMessageBox(self.parent())
+                    self._error_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
+                    self._error_dialog.setWindowTitle("Connection to server")
+                    self._error_dialog.setText("Error when connecting to the GNS3 server:\n{}".format(result["message"]))
+                    self._error_dialog.setIcon(QtWidgets.QMessageBox.Critical)
+                    self._error_dialog.show()
             # Try to connect again in 1 seconds
             QtCore.QTimer.singleShot(1000, qpartial(self.get, '/version', self._versionGetSlot, showProgress=self._first_error))
             self._first_error = False
         else:
             self._first_error = True
+            if self._error_dialog:
+                self._error_dialog.reject()
+                self._error_dialog = None
 
     def _httpClientConnectedSlot(self):
         if not self._connected:
             self._connected = True
             self._connecting = False
             self.connected_signal.emit()
+            self.refreshProjectList()
 
     def get(self, *args, **kwargs):
         return self.createHTTPQuery("GET", *args, **kwargs)
@@ -150,7 +165,10 @@ class Controller(QtCore.QObject):
         """
         if compute_id.startswith("http:") or compute_id.startswith("https:"):
             from .compute_manager import ComputeManager
-            return ComputeManager.instance().getCompute(compute_id).id()
+            try:
+                return ComputeManager.instance().getCompute(compute_id).id()
+            except KeyError:
+                return compute_id
         return compute_id
 
     def put(self, *args, **kwargs):
@@ -197,15 +215,19 @@ class Controller(QtCore.QObject):
             extension = ".svg"
         else:
             extension = ".png"
-        path = os.path.join(self._cache_directory.name, m.hexdigest() + extension)
+        path = os.path.join(self._cache_directory, m.hexdigest() + extension)
         if os.path.exists(path):
             callback(path)
+        elif path in self._static_asset_download_queue:
+            self._static_asset_download_queue[path].append(callback)
         else:
-            self._http_client.createHTTPQuery("GET", url, qpartial(self._getStaticCallback, callback, url, path))
+            self._static_asset_download_queue[path] = [callback]
+            self._http_client.createHTTPQuery("GET", url, qpartial(self._getStaticCallback, url, path))
 
-    def _getStaticCallback(self, callback, url, path, result, error=False, raw_body=None, **kwargs):
+    def _getStaticCallback(self, url, path, result, error=False, raw_body=None, **kwargs):
         if error:
             log.error("Error while downloading file: {}".format(url))
+            self._static_asset_download_queue = {}
             return
         try:
             with open(path, "wb+") as f:
@@ -214,7 +236,9 @@ class Controller(QtCore.QObject):
             log.error("Can't write to {}: {}".format(path, str(e)))
             return
         log.debug("File stored {} for {}".format(path, url))
-        callback(path)
+        for callback in self._static_asset_download_queue[path]:
+            callback(path)
+        del self._static_asset_download_queue[path]
 
     def getSymbolIcon(self, symbol_id, callback):
         """
@@ -229,3 +253,15 @@ class Controller(QtCore.QObject):
         icon = QtGui.QIcon()
         icon.addFile(path)
         callback(icon)
+
+    @qslot
+    def refreshProjectList(self, *args):
+        self.get("/projects", self._projectListCallback)
+
+    def _projectListCallback(self, result, error=False, **kwargs):
+        if not error:
+            self._projects = result
+        self.project_list_updated_signal.emit()
+
+    def projects(self):
+        return self._projects
