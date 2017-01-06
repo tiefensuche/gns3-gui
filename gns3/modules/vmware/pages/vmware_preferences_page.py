@@ -22,9 +22,8 @@ Configuration page for VMware preferences.
 import os
 import sys
 import shutil
-from gns3.qt import QtWidgets, qpartial
+from gns3.qt import QtWidgets
 from gns3.utils.sudo import sudo
-from gns3.controller import Controller
 
 from .. import VMware
 from ..ui.vmware_preferences_page_ui import Ui_VMwarePreferencesPageWidget
