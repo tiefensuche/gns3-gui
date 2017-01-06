@@ -54,9 +54,6 @@ class HostOnly(Node):
         :param node_id: Node identifier on the server
         """
 
-        if sys.platform.startswith("win"):
-            self._addWindowsLoopback(name)
-
         params = {}
         self._create(name, node_id, params, default_name_format)
 
