@@ -16,16 +16,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import sys
-import traceback
-from .qt import QtCore, qpartial, QtWidgets
+from .qt import QtCore, qpartial, QtWidgets, QtNetwork
 
 from gns3.controller import Controller
 from gns3.compute_manager import ComputeManager
 from gns3.topology import Topology
 from gns3.local_config import LocalConfig
 from gns3.settings import GRAPHICS_VIEW_SETTINGS
-
+from gns3.appliance_manager import ApplianceManager
 
 import logging
 log = logging.getLogger(__name__)
@@ -64,6 +62,8 @@ class Project(QtCore.QObject):
         self._name = "untitled"
         self._filename = None
 
+        # Due to bug in Qt on some version we need a dedicated network manager
+        self._notification_network_manager = QtNetwork.QNetworkAccessManager()
         self._notification_stream = None
 
         super().__init__()
@@ -184,13 +184,13 @@ class Project(QtCore.QObject):
         if self._id is None:
             return
 
-        Controller.instance().post("/projects/{project_id}/nodes/start".format(project_id=self._id), None, body={})
+        Controller.instance().post("/projects/{project_id}/nodes/start".format(project_id=self._id), None, body={}, timeout=None)
 
     def duplicate(self, name=None, path=None, callback=None):
         """
         Duplicate a project
         """
-        Controller.instance().post("/projects/{project_id}/duplicate".format(project_id=self._id), qpartial(self._duplicateCallback, callback), body={"name": name, "path": path})
+        Controller.instance().post("/projects/{project_id}/duplicate".format(project_id=self._id), qpartial(self._duplicateCallback, callback), body={"name": name, "path": path}, timeout=None)
 
     def _duplicateCallback(self, callback, result, error=False, **kwargs):
         if error:
@@ -207,7 +207,7 @@ class Project(QtCore.QObject):
         if self._id is None:
             return
 
-        Controller.instance().post("/projects/{project_id}/nodes/stop".format(project_id=self._id), None, body={})
+        Controller.instance().post("/projects/{project_id}/nodes/stop".format(project_id=self._id), None, body={}, timeout=None)
 
     def suspend_all_nodes(self):
         """Suspend all nodes belonging to this project"""
@@ -216,7 +216,7 @@ class Project(QtCore.QObject):
         if self._id is None:
             return
 
-        Controller.instance().post("/projects/{project_id}/nodes/suspend".format(project_id=self._id), None, body={})
+        Controller.instance().post("/projects/{project_id}/nodes/suspend".format(project_id=self._id), None, body={}, timeout=None)
 
     def reload_all_nodes(self):
         """Reload all nodes belonging to this project"""
@@ -225,7 +225,7 @@ class Project(QtCore.QObject):
         if self._id is None:
             return
 
-        Controller.instance().post("/projects/{project_id}/nodes/reload".format(project_id=self._id), None, body={})
+        Controller.instance().post("/projects/{project_id}/nodes/reload".format(project_id=self._id), None, body={}, timeout=None)
 
     def get(self, path, callback, **kwargs):
         """
@@ -353,9 +353,9 @@ class Project(QtCore.QObject):
             path = self.path()
         if path:
             body = {"path": path}
-            Controller.instance().post("/projects/load", self._projectOpenCallback, body=body)
+            Controller.instance().post("/projects/load", self._projectOpenCallback, body=body, timeout=None)
         else:
-            self.post("/open", self._projectOpenCallback)
+            self.post("/open", self._projectOpenCallback, timeout=None)
 
     def _projectOpenCallback(self, result, error=False, **kwargs):
         if error:
@@ -427,7 +427,7 @@ class Project(QtCore.QObject):
             log.error("Error while closing project {}: {}".format(self._id, result["message"]))
         else:
             self.stopListenNotifications()
-            log.info("Project {} closed".format(self._id))
+            log.debug("Project {} closed".format(self._id))
 
         self._closed = True
         self.project_closed_signal.emit()
@@ -441,8 +441,15 @@ class Project(QtCore.QObject):
             stream.abort()
 
     def _startListenNotifications(self):
+        if not Controller.instance().connected():
+            return
         path = "/projects/{project_id}/notifications".format(project_id=self._id)
-        self._notification_stream = Controller.instance().createHTTPQuery("GET", path, self._endListenNotificationCallback, downloadProgressCallback=self._event_received, showProgress=False, ignoreErrors=True)
+        self._notification_stream = Controller.instance().createHTTPQuery("GET", path, self._endListenNotificationCallback,
+                                                                          downloadProgressCallback=self._event_received,
+                                                                          networkManager=self._notification_network_manager,
+                                                                          timeout=None,
+                                                                          showProgress=False,
+                                                                          ignoreErrors=True)
 
     def _endListenNotificationCallback(self, result, error=False, **kwargs):
         """
@@ -508,5 +515,6 @@ class Project(QtCore.QObject):
             cm.computeDataReceivedCallback(result["event"])
         elif result["action"] == "settings.updated":
             LocalConfig.instance().refreshConfigFromController()
+            ApplianceManager.instance().refresh()
         elif result["action"] == "ping":
             pass

@@ -35,15 +35,21 @@ class Appliance(collections.Mapping):
     def __init__(self, registry, path):
         """
         :params registry: Instance of the registry where images are located
-        :params path: Path of the appliance file on disk
+        :params path: Path of the appliance file on disk or file content
         """
         self._registry = registry
 
-        try:
-            with open(path, encoding="utf-8") as f:
-                self._appliance = json.load(f)
-        except (OSError, ValueError) as e:
-            raise ApplianceError("Could not read appliance {}: {}".format(os.path.abspath(path), str(e)))
+        if os.path.isabs(path):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    self._appliance = json.load(f)
+            except (OSError, ValueError) as e:
+                raise ApplianceError("Could not read appliance {}: {}".format(os.path.abspath(path), str(e)))
+        else:
+            try:
+                self._appliance = json.loads(path)
+            except ValueError as e:
+                raise ApplianceError("Could not read appliance {}: {}".format(os.path.abspath(path), str(e)))
         self._check_config()
         self._resolve_version()
 
@@ -53,7 +59,7 @@ class Appliance(collections.Mapping):
         """
         if "registry_version" not in self._appliance:
             raise ApplianceError("Invalid appliance configuration please report the issue on https://github.com/GNS3/gns3-registry")
-        if self._appliance["registry_version"] > 3:
+        if self._appliance["registry_version"] > 4:
             raise ApplianceError("Please update GNS3 in order to install this appliance")
 
         with open(get_resource(os.path.join("schemas", "appliance.json"))) as f:
@@ -113,6 +119,9 @@ class Appliance(collections.Mapping):
         """
         Duplicate a version in order to create a new version
         """
+        if len(self._appliance["versions"]) == 0:
+            raise ApplianceError("Your appliance file doesn't contain any versions")
+
         ref = self._appliance["versions"][0]
         new_version = {'name': version_name}
         new_version['images'] = {}

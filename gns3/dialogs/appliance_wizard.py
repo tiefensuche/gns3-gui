@@ -16,14 +16,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import sys
 import sip
 
 from ..qt import QtWidgets, QtCore, QtGui, qpartial, qslot
 from ..ui.appliance_wizard_ui import Ui_ApplianceWizard
-from ..image_manager import ImageManager
 from ..modules import Qemu
-from ..registry.appliance import Appliance
+from ..registry.appliance import Appliance, ApplianceError
 from ..registry.registry import Registry
 from ..registry.config import Config, ConfigException
 from ..registry.image import Image
@@ -367,7 +365,11 @@ class ApplianceWizard(QtWidgets.QWizard, Ui_ApplianceWizard):
 
         new_version, ok = QtWidgets.QInputDialog.getText(self, "Creating a new version", "Creating a new version allows to import unknown files to use with this appliance.\nPlease share your experience on the GNS3 community if this version works.\n\nVersion name:", QtWidgets.QLineEdit.Normal)
         if ok:
-            self._appliance.create_new_version(new_version)
+            try:
+                self._appliance.create_new_version(new_version)
+            except ApplianceError as e:
+                QtWidgets.QMessageBox.critical(self.parent(), "Create new version", str(e))
+                return
             self.images_changed_signal.emit()
 
     @qslot
@@ -380,18 +382,22 @@ class ApplianceWizard(QtWidgets.QWizard, Ui_ApplianceWizard):
             return False
 
         current = self.uiApplianceVersionTreeWidget.currentItem()
+        if not current:
+            return
         disk = current.data(1, QtCore.Qt.UserRole)
 
         path, _ = QtWidgets.QFileDialog.getOpenFileName()
         if len(path) == 0:
             return
 
-        image = Image(self._appliance.emulator(), path)
-        if "md5sum" in disk and image.md5sum != disk["md5sum"]:
-            QtWidgets.QMessageBox.warning(self.parent(), "Add appliance", "This is not the correct file. The MD5 sum is {} and should be {}.".format(image.md5sum, disk["md5sum"]))
+        image = Image(self._appliance.emulator(), path, filename=disk["filename"])
+        try:
+            if "md5sum" in disk and image.md5sum != disk["md5sum"]:
+                QtWidgets.QMessageBox.warning(self.parent(), "Add appliance", "This is not the correct file. The MD5 sum is {} and should be {}.".format(image.md5sum, disk["md5sum"]))
+                return
+        except OSError as e:
+            QtWidgets.QMessageBox.warning(self.parent(), "Add appliance", "Can't access to the image file {}: {}.".format(path, str(e)))
             return
-
-        config = Config()
         image.upload(self._compute_id, callback=self._imageUploadedCallback)
 
     def _getQemuBinariesFromServerCallback(self, result, error=False, **kwargs):
@@ -434,7 +440,11 @@ class ApplianceWizard(QtWidgets.QWizard, Ui_ApplianceWizard):
         if version is None:
             appliance_configuration = self._appliance.copy()
         else:
-            appliance_configuration = self._appliance.search_images_for_version(version)
+            try:
+                appliance_configuration = self._appliance.search_images_for_version(version)
+            except ApplianceError as e:
+                QtWidgets.QMessageBox.critical(self.parent(), "Add appliance", str(e))
+                return False
 
         while len(appliance_configuration["name"]) == 0 or not config.is_name_available(appliance_configuration["name"]):
             QtWidgets.QMessageBox.warning(self.parent(), "Add appliance", "The name \"{}\" is already used by another appliance".format(appliance_configuration["name"]))

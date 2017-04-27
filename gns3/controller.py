@@ -46,6 +46,7 @@ class Controller(QtCore.QObject):
         # If it's the first error we display an alert box to the user
         self._first_error = True
         self._error_dialog = None
+        self._display_error = True
         self._projects = []
 
         # If we do multiple call in order to download the same symbol we queue them
@@ -85,9 +86,18 @@ class Controller(QtCore.QObject):
         """
         self._http_client = http_client
         if self._http_client:
+            if self.isRemote():
+                self._http_client.setMaxTimeDifferenceBetweenQueries(120)
             self._http_client.connection_connected_signal.connect(self._httpClientConnectedSlot)
             self._http_client.connection_disconnected_signal.connect(self._httpClientDisconnectedSlot)
             self._connectingToServer()
+
+    def setDisplayError(self, val):
+        """
+        Allow error to be visible or not
+        """
+        self._display_error = val
+        self._first_error = True
 
     def _connectingToServer(self):
         """
@@ -111,15 +121,15 @@ class Controller(QtCore.QObject):
             if self._first_error:
                 self._connecting = False
                 self.connection_failed_signal.emit()
-                if "message" in result:
+                if "message" in result and self._display_error:
                     self._error_dialog = QtWidgets.QMessageBox(self.parent())
                     self._error_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
                     self._error_dialog.setWindowTitle("Connection to server")
                     self._error_dialog.setText("Error when connecting to the GNS3 server:\n{}".format(result["message"]))
                     self._error_dialog.setIcon(QtWidgets.QMessageBox.Critical)
                     self._error_dialog.show()
-            # Try to connect again in 1 seconds
-            QtCore.QTimer.singleShot(1000, qpartial(self.get, '/version', self._versionGetSlot, showProgress=self._first_error))
+            # Try to connect again in x seconds
+            QtCore.QTimer.singleShot(5000, qpartial(self.get, '/version', self._versionGetSlot, showProgress=self._first_error))
             self._first_error = False
         else:
             self._first_error = True
@@ -198,12 +208,13 @@ class Controller(QtCore.QObject):
             Controller._instance = Controller()
         return Controller._instance
 
-    def getStatic(self, url, callback):
+    def getStatic(self, url, callback, fallback=None):
         """
         Get a URL from the /static on controller and cache it on disk
 
         :param url: URL without the protocol and host part
         :param callback: Callback to call when file is ready
+        :param fallback: Fallback url in case of error
         """
 
         if not self._http_client:
@@ -219,15 +230,24 @@ class Controller(QtCore.QObject):
         if os.path.exists(path):
             callback(path)
         elif path in self._static_asset_download_queue:
-            self._static_asset_download_queue[path].append(callback)
+            self._static_asset_download_queue[path].append((callback, fallback, ))
         else:
-            self._static_asset_download_queue[path] = [callback]
+            self._static_asset_download_queue[path] = [(callback, fallback, )]
             self._http_client.createHTTPQuery("GET", url, qpartial(self._getStaticCallback, url, path))
 
     def _getStaticCallback(self, url, path, result, error=False, raw_body=None, **kwargs):
+        if path not in self._static_asset_download_queue:
+            return
+
         if error:
+            fallback_used = False
+            for callback, fallback in self._static_asset_download_queue[path]:
+                self.getStatic(fallback, callback)
+                fallback_used = True
+            if fallback_used:
+                log.error("Error while downloading file: {}".format(url))
             log.error("Error while downloading file: {}".format(url))
-            self._static_asset_download_queue = {}
+            del self._static_asset_download_queue[path]
             return
         try:
             with open(path, "wb+") as f:
@@ -236,23 +256,43 @@ class Controller(QtCore.QObject):
             log.error("Can't write to {}: {}".format(path, str(e)))
             return
         log.debug("File stored {} for {}".format(path, url))
-        for callback in self._static_asset_download_queue[path]:
+        for callback, fallback in self._static_asset_download_queue[path]:
             callback(path)
         del self._static_asset_download_queue[path]
 
-    def getSymbolIcon(self, symbol_id, callback):
+    def getSymbolIcon(self, symbol_id, callback, fallback=None):
         """
         Get a QIcon for a symbol from the controller
 
-        :param url: URL without the protocol and host part
+        :param symbol_id: Symbol id
         :param callback: Callback to call when file is ready
+        :param fallback: Fallback symbol if not found
         """
-        self.getStatic(Symbol(symbol_id).url(), qpartial(self._getIconCallback, callback))
+        if symbol_id is None:
+            self.getStatic(Symbol(fallback).url(), qpartial(self._getIconCallback, callback))
+        else:
+            if fallback:
+                fallback = Symbol(fallback).url()
+            self.getStatic(Symbol(symbol_id).url(), qpartial(self._getIconCallback, callback), fallback=fallback)
 
     def _getIconCallback(self, callback, path):
         icon = QtGui.QIcon()
         icon.addFile(path)
         callback(icon)
+
+    def deleteProject(self, project_id, callback=None):
+        Controller.instance().delete("/projects/{}".format(project_id), qpartial(self._deleteProjectCallback, callback=callback, project_id=project_id))
+
+    def _deleteProjectCallback(self, result, error=False, project_id=None, callback=None, **kwargs):
+        if error:
+            log.error("Error while deleting project: {}".format(result["message"]))
+        else:
+            self.refreshProjectList()
+
+        self._projects = [p for p in self._projects if p["project_id"] != project_id]
+
+        if callback:
+            callback(result, error=error, **kwargs)
 
     @qslot
     def refreshProjectList(self, *args):

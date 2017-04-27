@@ -26,6 +26,7 @@ from gns3.qt import QtCore, QtGui, QtWidgets
 from gns3.local_server import LocalServer
 from gns3.dialogs.node_properties_dialog import ConfigurationError
 from gns3.dialogs.symbol_selection_dialog import SymbolSelectionDialog
+from gns3.controller import Controller
 from gns3.node import Node
 from ..ui.ios_router_configuration_page_ui import Ui_iosRouterConfigPageWidget
 from ..settings import CHASSIS, ADAPTER_MATRIX, WIC_MATRIX
@@ -70,6 +71,10 @@ class IOSRouterConfigurationPage(QtWidgets.QWidget, Ui_iosRouterConfigPageWidget
         # add the categories
         for name, category in Node.defaultCategories().items():
             self.uiCategoryComboBox.addItem(name, category)
+
+        if Controller.instance().isRemote():
+            self.uiStartupConfigToolButton.hide()
+            self.uiPrivateConfigToolButton.hide()
 
     def _idlePCValidateSlot(self):
         """
@@ -188,7 +193,7 @@ class IOSRouterConfigurationPage(QtWidgets.QWidget, Ui_iosRouterConfigPageWidget
             widget.setEnabled(False)
 
         # load the available adapters to the correct slot for the corresponding platform and chassis
-        for slot_number, slot_adapters in ADAPTER_MATRIX[platform][chassis].items():
+        for slot_number, slot_adapters in ADAPTER_MATRIX[platform].get(chassis, {}).items():
             self._widget_slots[slot_number].setEnabled(True)
 
             if isinstance(slot_adapters, str):
@@ -598,11 +603,11 @@ class IOSRouterConfigurationPage(QtWidgets.QWidget, Ui_iosRouterConfigPageWidget
                 if node:
                     settings["slot" + str(slot_number)] = node.settings().get("slot" + str(slot_number))
 
-                if settings["slot" + str(slot_number)] and settings["slot" + str(slot_number)] != module:
+                if settings["slot" + str(slot_number)] and settings.get("slot" + str(slot_number)) != module:
                     if node:
                         self._checkForLinkConnectedToAdapter(slot_number, settings, node)
                 settings["slot" + str(slot_number)] = module
-            elif settings["slot" + str(slot_number)]:
+            elif "slot" + str(slot_number) in settings and settings["slot" + str(slot_number)]:
                 if node:
                     self._checkForLinkConnectedToAdapter(slot_number, settings, node)
                 settings["slot" + str(slot_number)] = ""
@@ -619,7 +624,7 @@ class IOSRouterConfigurationPage(QtWidgets.QWidget, Ui_iosRouterConfigPageWidget
                     if node:
                         self._checkForLinkConnectedToWIC(wic_number, settings, node)
                 settings["wic" + str(wic_number)] = wic_name
-            elif settings["wic" + str(wic_number)]:
+            elif "wic" + str(wic_number) in settings and settings["wic" + str(wic_number)]:
                 if node:
                     self._checkForLinkConnectedToWIC(wic_number, settings, node)
                 settings["wic" + str(wic_number)] = ""

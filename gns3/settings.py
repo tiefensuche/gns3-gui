@@ -53,7 +53,7 @@ if sys.platform.startswith("win"):
     PRECONFIGURED_TELNET_CONSOLE_COMMANDS = {'Putty (included with GNS3)': 'putty.exe -telnet %h %p -wt "%d" -gns3 5 -skin 4',
                                              'MobaXterm': r'"{}\Mobatek\MobaXterm Personal Edition\MobaXterm.exe" -newtab "telnet %h %p"'.format(program_files_x86),
                                              'Royal TS': '{}\code4ward.net\Royal TS V3\RTS3App.exe /connectadhoc:%h /adhoctype:terminal /p:IsTelnetConnection="true" /p:ConnectionType="telnet;Telnet Connection" /p:Port="%p" /p:Name="%d"'.format(program_files),
-                                             'SuperPutty (included with GNS3)': r'SuperPutty.exe -telnet "%h -P %p -wt \"%d\""',
+                                             'SuperPutty': r'SuperPutty.exe -telnet "%h -P %p -wt \"%d\""',
                                              'SecureCRT': r'"{}\VanDyke Software\SecureCRT\SecureCRT.exe" /N "%d" /T /TELNET %h %p'.format(program_files),
                                              'SecureCRT (personal profile)': r'"{}\AppData\Local\VanDyke Software\SecureCRT\SecureCRT.exe" /T /N "%d" /TELNET %h %p'.format(userprofile),
                                              'TeraTerm Pro': r'"{}\teraterm\ttermpro.exe" /W="%d" /M="ttstart.macro" /T=1 %h %p'.format(program_files_x86),
@@ -147,7 +147,10 @@ else:
 # Pre-configured VNC console commands on various OSes
 if sys.platform.startswith("win"):
     # Windows
-    PRECONFIGURED_VNC_CONSOLE_COMMANDS = {'TightVNC (included with GNS3)': 'tvnviewer.exe %h:%p'}
+    PRECONFIGURED_VNC_CONSOLE_COMMANDS = {
+        'TightVNC (included with GNS3)': 'tvnviewer.exe %h:%p',
+        'UltraVNC': 'C:\\Program Files\\uvnc bvba\\UltraVNC\\vncviewer.exe %h:%p'
+    }
 
     # default Windows VNC console command
     DEFAULT_VNC_CONSOLE_COMMAND = PRECONFIGURED_VNC_CONSOLE_COMMANDS['TightVNC (included with GNS3)']
@@ -170,7 +173,8 @@ elif sys.platform.startswith("darwin"):
 else:
     PRECONFIGURED_VNC_CONSOLE_COMMANDS = {
         'TightVNC': 'vncviewer %h:%p',
-        'Vinagre': 'vinagre %h::%p'
+        'Vinagre': 'vinagre %h::%p',
+        'gvncviewer': 'gvncviewer %h:%P'
     }
 
     # default VNC console command on other systems
@@ -215,6 +219,7 @@ else:
 GENERAL_SETTINGS = {
     "style": DEFAULT_STYLE,
     "check_for_update": True,
+    "overlay_notifications": True,
     "experimental_features": False,
     "send_stats": True,
     "stats_visitor_id": str(uuid.uuid4()),  # An anonymous id for stats
@@ -231,7 +236,12 @@ GENERAL_SETTINGS = {
     "state": "",
     "preferences_dialog_geometry": "",
     "debug_level": 0,
-    "multi_profiles": False
+    "multi_profiles": False,
+    "hdpi": not sys.platform.startswith("linux")
+}
+
+NODES_VIEW_SETTINGS = {
+    "nodes_view_filter": 0,
 }
 
 GRAPHICS_VIEW_SETTINGS = {

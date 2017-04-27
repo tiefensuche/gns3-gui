@@ -178,7 +178,15 @@ class NodeItem(QtSvg.QGraphicsSvgItem):
         if not sip.isdeleted(link_item):
             self._links.append(link_item)
             link_item.link().delete_link_signal.connect(self._removeLink)
+            link_item.link().updated_link_signal.connect(self._linkUpdatedSlot)
             self._node.updated_signal.emit()
+
+    @qslot
+    def _linkUpdatedSlot(self, *args):
+        """
+        When a link change we also notify the listener of the node
+        """
+        self._node.updated_signal.emit()
 
     @qslot
     def _removeLink(self, link_id, *args):
@@ -189,8 +197,9 @@ class NodeItem(QtSvg.QGraphicsSvgItem):
         """
 
         for link_item in self._links:
-            if link_item.link().id == link_id:
+            if link_item.link().id() == link_id:
                 self._links.remove(link_item)
+                return
 
     def links(self):
         """

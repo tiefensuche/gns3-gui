@@ -23,7 +23,6 @@ import sys
 import os
 import shlex
 import subprocess
-from .main_window import MainWindow
 
 import logging
 log = logging.getLogger(__name__)
@@ -37,13 +36,17 @@ def vncConsole(host, port, command):
     :param port: port number
     """
 
+    if len(command.strip(' ')) == 0:
+        log.warning('VNC client is not configured')
+        return
+
     # replace the place-holders by the actual values
     command = command.replace("%h", host)
     command = command.replace("%p", str(port))
     command = command.replace("%P", str(port - 5900))
 
     try:
-        log.info('starting VNC program "{}"'.format(command))
+        log.debug('starting VNC program "{}"'.format(command))
         if sys.platform.startswith("win"):
             # use the string on Windows
             subprocess.Popen(command)

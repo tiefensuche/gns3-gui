@@ -15,13 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
+import sip
 import time
 from contextlib import contextmanager
 
 from .utils import human_filesize
-from .qt import QtCore, QtWidgets, QtNetwork
+from .qt import QtCore, QtWidgets, QtNetwork, qslot
 
+import logging
 log = logging.getLogger(__name__)
 
 
@@ -34,6 +35,8 @@ class Progress(QtCore.QObject):
     add_query_signal = QtCore.Signal(str, str, QtNetwork.QNetworkReply)
     remove_query_signal = QtCore.Signal(str)
     progress_signal = QtCore.Signal(str, int, int)
+    show_signal = QtCore.Signal()
+    hide_signal = QtCore.Signal()
 
     def __init__(self, parent, min_duration=1000, delay=250):
         """
@@ -43,6 +46,7 @@ class Progress(QtCore.QObject):
 
         super().__init__(parent)
         self._progress_dialog = None
+        self._show_lock = False
 
         # Timer called for refreshing the progress dialog status
         self._rtimer = QtCore.QTimer()
@@ -62,6 +66,8 @@ class Progress(QtCore.QObject):
         self.add_query_signal.connect(self._addQuerySlot, QtCore.Qt.QueuedConnection)
         self.remove_query_signal.connect(self._removeQuerySlot, QtCore.Qt.QueuedConnection)
         self.progress_signal.connect(self._progressSlot, QtCore.Qt.QueuedConnection)
+        self.show_signal.connect(self._showSlot, QtCore.Qt.QueuedConnection)
+        self.hide_signal.connect(self._hideSlot, QtCore.Qt.QueuedConnection)
 
         self._minimum_duration = min_duration
         self._cancel_button_text = ""
@@ -75,6 +81,11 @@ class Progress(QtCore.QObject):
         self._finished_query_during_display += 1
         if query_id in self._queries:
             del self._queries[query_id]
+
+    def reset(self):
+        if not sip.isdeleted(self):
+            self._queries = {}
+            self.hide_signal.emit()
 
     def progress_dialog(self):
         return self._progress_dialog
@@ -98,7 +109,9 @@ class Progress(QtCore.QObject):
                 query["response"].abort()
 
     def _rejectSlot(self):
-        self._progress_dialog = None
+        if self._progress_dialog is not None and not sip.isdeleted(self._progress_dialog) or self._progress_dialog.wasCanceled():
+            self._progress_dialog.deleteLater()
+            self._progress_dialog = None
         self._cancelSlot()
 
     def update(self):
@@ -106,12 +119,16 @@ class Progress(QtCore.QObject):
         if now < self._display_start_time:
             return
         if len(self._queries) == 0 and (time.time() * 1000) >= self._display_start_time + self._minimum_duration:
-            self.hide()
+            self.hide_signal.emit()
             return
-        self.show()
+        self.show_signal.emit()
 
-    def show(self):
-        if self._progress_dialog is None or self._progress_dialog.wasCanceled():
+    @qslot
+    def _showSlot(self):
+        if self._show_lock:
+            return
+        self._show_lock = True
+        if self._progress_dialog is None or sip.isdeleted(self._progress_dialog) or self._progress_dialog.wasCanceled():
             progress_dialog = QtWidgets.QProgressDialog("Waiting for server response", None, 0, 0, self.parent())
             progress_dialog.canceled.connect(self._cancelSlot)
             progress_dialog.rejected.connect(self._rejectSlot)
@@ -134,8 +151,10 @@ class Progress(QtCore.QObject):
             self._display_start_time = (time.time() * 1000) + self._delay
             self.update()
         else:
-            start_timer = False
             progress_dialog = self._progress_dialog
+            if sip.isdeleted(progress_dialog):
+                self._show_lock = False
+                return
 
             if len(self._queries) > 0:
                 text = list(self._queries.values())[0]["explanation"]
@@ -171,12 +190,14 @@ class Progress(QtCore.QObject):
 
             if text:
                 progress_dialog.setLabelText(text)
+        self._show_lock = False
 
-    def hide(self):
+    @qslot
+    def _hideSlot(self):
         """
         Hide and cancel the progress dialog
         """
-        if self._progress_dialog is not None:
+        if self._progress_dialog is not None and not self._show_lock:
             progress_dialog = self._progress_dialog
             self._progress_dialog = None
             progress_dialog.cancel()
@@ -223,4 +244,3 @@ class Progress(QtCore.QObject):
         if not hasattr(Progress, "_instance") or Progress._instance is None:
             Progress._instance = Progress(parent)
         return Progress._instance
-

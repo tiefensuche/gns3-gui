@@ -1,5 +1,175 @@
 # Change Log
 
+## 2.0.0rc4 20/04/2017
+
+* Catch all error during the generation of log messages.
+* Catch a rare node creation error
+* Fix missing menu text at application startup
+* Fix a race condition in the drawing item
+* Catch system error when connecting to local server
+* Catch a rare error when killing the capture
+* Improve pcap streaming speed
+* Upgrade to 5.7.1
+* Recent projects list bug
+* Fix a race condition in the preferences dialog
+* Try to fix some windows Z issues
+* Catch a garbage collection issue in the right click on a link
+* Fix a compatibility issue with Python 3.4
+
+## 1.5.4 13/04/2017
+
+* Limit ubridge permission to the admin group on OSX
+* Upgrade to Qt 5.7.1 on Windows
+
+## 2.0.0rc3 31/03/2017
+
+* Improve timeout handling
+* Improve logging when we display a qt message box
+* Try to detect computer hibernation
+* Fix crash when we send some errors to the user console
+* Use QtFile for managing file capture
+* Allow to delete a profile from the profile select dialog
+* Filter hidden folder in the profil directory
+* Prevent user putting port in the remote host name
+* Fix RuntimeError: wrapped C/C++ object of type EllipseItem has been deleted
+* Fix a rare error in LinkItem
+* Fix Image field in nodes list is stale after changing an image
+* Fix RuntimeError: Set changed size during iteration
+* Better detection of remote server changes
+* Add a notice about the fact you need to apply server settings
+* Check python version only for setup.py install
+* Catch appliance error when creating an appliance new version
+* If a node can't be deleted do not remove it
+* If something is wrong during packet capture do not disconnect us from the server
+* Fix saving dynamips
+* Try to fix the hang dialog on some computers
+* Fix a rare crash in progress dialog
+* If we pass --profile skip the profile select dialog
+* Raise an error if the progress dialog is not created from the main thread
+* Log qt log to python log
+* Fix image are not uploaded to remote main server
+* Fix race condition when editing a project
+* Poll settings each 5 seconds
+* Avoid progress dialog not disapear
+* Remove wrong mention about the fact super putty is include
+* Avoid a crash when an ios router don't have a chassis
+* Fix a potentatial crash in the progress dialog
+* Support official docker images in appliances
+
+## 2.0.0rc2 10/03/2017
+
+* Deploy on pypi when we tag
+* Fix rare crash in GNS3 VM preference page
+* Fix an error on Windows when loading SVG files
+* Prevent a potential crash
+* Workaround a rare crash when sending analytics
+* Catch error when you try to create a node a not existing server
+* Fix an error when your local server crash and computer return non unicode
+* Fix KeyError: 'slot1'
+* Fix a rare crash in import appliance
+* Rollback to PyQT 5.8 because 5.8.1 seem to have trouble at install
+* Update pyqt5 from 5.8 to 5.8.1
+
+## 2.0.0 RC 1 06/03/2017
+
+* UltraVNC support
+* Display less noisy dialog when we can't connect to the remote server
+* Prevent the usage of gns3vm as a remote server name
+* Fix the VMware wizard for not using a remote server by default
+* Prevent the GNS3 VM to appear in remote compute in the VM wizard
+* Remove iouyap settings
+* Fix missing permission error management
+* Avoid a crash when create a new dynamips version in the appliance wizard
+* Disallow user to add the same server as a remote server and as local server
+* Fix 'module' object has no attribute 'run'
+* Monitor and display local server stderr
+* Fix some import errors
+* Remove placeholder string from appliance wizard
+* Avoiding calling multiple time /computes at the same time. And reduce timeout
+* Support for appliance v4
+* Some tweaks for enabling/disabling HDPI mode.
+* Do not display error at first step of the setup wizard
+* Disable HDPI by default on Linux and allow to configure it
+* Fix an issue when you edit a VPCS node from the node view
+* Catch a race condition in managing error static assets download
+* Handle error if you try to import an appliance without having the images
+* Improve crash proof code of the progress dialog
+
+## 2.0.0 beta 4 19/01/2017
+
+* Update pyqt5 from 5.7.1 to 5.8
+* Drop from console view the show command not supported by 2.0
+* Try to avoid segfault in some PyQT version
+* Support for strike and underline
+* Do not use native font selector on mac it could crash
+* Use a dedicated QNetwork manager for notification
+* Fix a display error in console error message
+* Use signal for writting on console to avoid some potential segfault
+* Fix a rare warning
+* Add more debug when we have an http error
+* Disable timeout on project open
+* Support for gvncviewer
+* Fix a rare crash in the file editor dialog
+* Fix a race condition when we display the error
+* Fix an issue with invalid hostname detected as an IPV6
+* When you update a a node from the node view send settings to controller
+* Fix error when permission on the loaded image is broken
+* Fix crash with invalid image file in appliance wizard
+* Fix error when loading an handmade appliance file
+* Fix no error if your VNC client is not configured
+* Avoid high cpu usage when connection is lost
+* Support {name} in cloud template
+* Fix text of the export dialog
+* Fix error message when a project is already open
+* Fix missing info in tooltip of ethernet switch
+* The server manage the vmname when we update the linked virtual box VM
+* Fix z value for text
+* Avoid a segfault when display an error
+* Add sata options in the appliance schema
+* Fix a rare crash when exporting IOU configurations
+* Allow additionnal properties in registry files
+* Fix a potential crash when a symbol is not found
+* Strip unused code for OVA support in the registry
+* Increase the timeout for killing local server
+* Fix error when changing the layer of a drawing item
+* Fix double click for open file on OSX
+* Add debug to see the arguments use to start the application
+* Put the selected engine in the first position of the listbox
+* Fix rare crash with dynamips
+* Fix rare crash in the progress dialog
+* Fix a rare crash in console view
+* Fix crash when you drag a file inside GNS3
+
+## 2.0.0 beta 3 19/01/2017
+
+* Fix error if you already have an image with a different name on remote server
+* Drop gns3 converter from requirements
+* Show correct server name in tooltip
+* Menu item to open controller webpage
+* Fixes potential exception when adding network module to an IOS router. Fixes #1774.
+* Do not export a file config file if empty
+* Allow to set console type in qemu wizard
+* Fix overwrite of projects
+* Fix creation of new appliance version when filename is different
+* Fix you can't configure port 0 on ethernet switch
+* Fix a race condition when saving as a project and closing it
+* Reorder multi link when you delete one
+* Ensure we can't connect to occupy port
+* Fix AttributeError: 'QImageSvgRenderer' object has no attribute '_svg'
+* Fix Unsaved preferences in GNS3 VM warning
+* Force margins in configuration tabs.
+* Sata disk interface support for Qemu VMs.
+* Remove "sata" disk interface. Does not exist in Qemu. Ref #1749
+* Add SATA and none disk interfaces on Qemu VM configuration page. Fixes #1749.
+* Update pyqt5 from 5.7 to 5.7.1
+* Fix TypeError: argument of type 'NoneType' is not iterable
+* Fix an error when you edit readme and no projet is opened
+* Upgrade Qt 5.7
+
+## 1.5.3 12/01/2017
+
+* Upgrade Qt 5.7
+
 ## 2.0.0 beta 2 20/12/2016
 
 * AUX console button text change in MainWindow.
@@ -200,6 +370,25 @@
 * Suspend the GNS3VM when closing GNS3
 * Edit the scene size
 * New API
+
+
+## 1.5.3 rc1 20/12/2016
+
+* Fix Error when editing IOS image created using .gns3a file
+* Fix error when opening a project from the cli with a gns3 installed via setup.py
+* Fix a crash at startup on Mac when coming from old GNS3 version
+* Fix an error during import of some 0.8x projects
+* Ask for restart after installing vmrun
+* Improve warning when connection issue to GNS3 VM
+* Changes wording in VM wizards.
+* Changed sentence.
+* Display an error if settings come from a more recent version of GNS3
+* Fix Error when no GNS3 VM is configured and you click on new Docker or IOU
+* Disallow / in docker container name
+* Update iTerm3 console settings
+* Fix rename ethernet switch doesn't release the name
+* Support for VNC display number in command line replacement
+* Fix a crash when a directory with image is not accessible at gns3a import
 
 ## 1.5.2 18/08/2016
 

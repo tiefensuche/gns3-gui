@@ -90,7 +90,7 @@ class PacketCapture:
             if link.capturing():
                 if self._autostart[link]:
                     self.startPacketCaptureReader(link)
-                log.info("Has successfully started capturing packets on {} to {}".format(link.id(), link.capture_file_path()))
+                log.debug("Has successfully started capturing packets on {} to {}".format(link.id(), link.capture_file_path()))
             else:
                 self.stopPacketCaptureReader(link)
 
@@ -103,7 +103,7 @@ class PacketCapture:
         """
 
         link.stopCapture()
-        log.info("Has successfully stopped capturing packets on {}".format(link.id()))
+        log.debug("Has successfully stopped capturing packets on {}".format(link.id()))
 
     def startPacketCaptureReader(self, link):
         """
@@ -154,7 +154,10 @@ class PacketCapture:
                 pass
             del self._tail_process[link]
         if link in self._capture_reader_process and self._capture_reader_process[link].poll() is None:
-            self._capture_reader_process[link].kill()
+            try:
+                self._capture_reader_process[link].kill()
+            except (PermissionError, OSError):
+                pass
             del self._capture_reader_process[link]
 
         # PCAP capture file path

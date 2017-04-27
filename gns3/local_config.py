@@ -23,7 +23,7 @@ import copy
 
 import psutil
 
-from .qt import QtCore, QtWidgets
+from .qt import QtCore, QtWidgets, qslot
 from .version import __version__
 from .utils import parse_version
 from .controller import Controller
@@ -39,6 +39,8 @@ class LocalConfig(QtCore.QObject):
     """
 
     config_changed_signal = QtCore.Signal()
+    # When this signal is emit the config is saved on controller
+    save_on_controller_signal = QtCore.Signal()
 
     def __init__(self, config_file=None):
         """
@@ -48,8 +50,27 @@ class LocalConfig(QtCore.QObject):
         super().__init__()
         self._profile = None
         self._config_file = config_file
+        # Security to avoid pushing to the controller settings before
+        # we get the original settings from controller
+        self._settings_retrieved_from_controller = False
         self._migrateOldConfigPath()
         self._resetLoadConfig()
+        self._monitoring_changes = False
+        Controller.instance().connected_signal.connect(self.refreshConfigFromController)
+        self.save_on_controller_signal.connect(self._saveOnController)
+
+    def _monitorChanges(self):
+        """
+        Poll the remote server waiting for settings update
+        """
+        if self._monitoring_changes:
+            return
+        self._monitoring_changes = True
+        self._timer = QtCore.QTimer()
+        self._timer.setInterval(5000)
+        self._refreshingSettings = False
+        self._timer.timeout.connect(self.refreshConfigFromController)
+        self._timer.start()
 
     def _resetLoadConfig(self):
         """
@@ -97,8 +118,7 @@ class LocalConfig(QtCore.QObject):
         # overwrite system wide settings with user specific ones
         self._settings.update(user_settings)
         self._migrateOldConfig()
-        self._writeConfig()
-        Controller.instance().connected_signal.connect(self.refreshConfigFromController)
+        self.writeConfig()
 
     def profile(self):
         """
@@ -116,28 +136,36 @@ class LocalConfig(QtCore.QObject):
             self._config_file = None
             self._resetLoadConfig()
 
+    @qslot
     def refreshConfigFromController(self):
         """
         Refresh the configuration from the controller
         """
         controller = Controller.instance()
         if controller.connected():
-            controller.get("/settings", self._getSettingsCallback)
+            self._refreshingSettings = True
+            controller.get("/settings", self._getSettingsCallback, showProgress=False)
+        self._monitorChanges()
 
     def _getSettingsCallback(self, result, error=False, **kwargs):
+        self._refreshingSettings = False
         if error:
             log.error("Can't get settings from controller")
             return
         if result == {} and self._settings != {}:
-            self._saveOnController()
+            self._settings_retrieved_from_controller = True
+            self.save_on_controller_signal.emit()
             return
 
-        self._settings.update(result)
-        # Update already loaded section
-        for section in self._settings.keys():
-            if isinstance(self._settings[section], dict):
-                self.loadSectionSettings(section, self._settings[section])
-        self.config_changed_signal.emit()
+        # The server return an uuid to keep track of settings version
+        if self._settings.get("modification_uuid") != result.get("modification_uuid"):
+            self._settings.update(result)
+            # Update already loaded section
+            for section in self._settings.keys():
+                if isinstance(self._settings[section], dict):
+                    self.loadSectionSettings(section, self._settings[section])
+            self.config_changed_signal.emit()
+        self._settings_retrieved_from_controller = True
 
     def configDirectory(self):
         """
@@ -181,7 +209,7 @@ class LocalConfig(QtCore.QObject):
         # settings from 1.6.1 with 1.5.1 you will have an error
         if "version" in self._settings:
             if parse_version(self._settings["version"])[:2] > parse_version(__version__)[:2]:
-                app = QtWidgets.QApplication(sys.argv)  # We need to create an application because settings are loaded before Qt init
+                QtWidgets.QApplication(sys.argv)  # We need to create an application because settings are loaded before Qt init
                 QtWidgets.QMessageBox.critical(None, "Version error", "Your settings are for version {} of GNS3. You cannot use a previous version of GNS3 without risking losing data.".format(self._settings["version"]))
                 # Exit immediately not clean but we want to avoid any side effect that could corrupt the file
                 sys.exit(1)
@@ -212,7 +240,7 @@ class LocalConfig(QtCore.QObject):
                 from .settings import PRECONFIGURED_TELNET_CONSOLE_COMMANDS, DEFAULT_TELNET_CONSOLE_COMMAND
 
                 if "MainWindow" in self._settings:
-                    if self._settings["MainWindow"]["telnet_console_command"] not in PRECONFIGURED_TELNET_CONSOLE_COMMANDS.values():
+                    if self._settings["MainWindow"].get("telnet_console_command") not in PRECONFIGURED_TELNET_CONSOLE_COMMANDS.values():
                         self._settings["MainWindow"]["telnet_console_command"] = DEFAULT_TELNET_CONSOLE_COMMAND
 
         # Migrate 1.X to 2.0
@@ -241,7 +269,7 @@ class LocalConfig(QtCore.QObject):
         Read the configuration file.
         """
 
-        log.info("Load config from %s", config_path)
+        log.debug("Load config from %s", config_path)
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 self._last_config_changed = os.stat(config_path).st_mtime
@@ -257,7 +285,7 @@ class LocalConfig(QtCore.QObject):
 
         return dict()
 
-    def _writeConfig(self):
+    def writeConfig(self):
         """
         Write the configuration file.
         """
@@ -268,20 +296,21 @@ class LocalConfig(QtCore.QObject):
             with open(temporary, "w", encoding="utf-8") as f:
                 json.dump(self._settings, f, sort_keys=True, indent=4)
             shutil.move(temporary, self._config_file)
-            log.info("Configuration save to %s", self._config_file)
+            log.debug("Configuration save to %s", self._config_file)
             self._last_config_changed = os.stat(self._config_file).st_mtime
         except (ValueError, OSError) as e:
             log.error("Could not write the config file {}: {}".format(self._config_file, e))
-        self._saveOnController()
+        self.save_on_controller_signal.emit()
 
-    def _saveOnController(self):
+    @qslot
+    def _saveOnController(self, *args):
         """
         Save some settings on controller for the transition from
         GUI to a central controller. Will be removed later
         """
-        if Controller.instance().connected():
+        if Controller.instance().connected() and self._settings_retrieved_from_controller:
             # We save only non user specific sections
-            section_to_save_on_controller = ["Builtin", "Docker", "IOU", "Qemu", "VMware", "VPCS", "VirtualBox", "GraphicsView"]
+            section_to_save_on_controller = ["Builtin", "Docker", "IOU", "Qemu", "VMware", "VPCS", "VirtualBox", "GraphicsView", "Dynamips"]
             controller_settings = {}
             for key, val in self._settings.items():
                 if key in section_to_save_on_controller:
@@ -295,7 +324,7 @@ class LocalConfig(QtCore.QObject):
 
         try:
             if self._last_config_changed and self._last_config_changed < os.stat(self._config_file).st_mtime:
-                log.info("Client config has changed, reloading it...")
+                log.debug("Client config has changed, reloading it...")
                 self._readConfig(self._config_file)
                 self.config_changed_signal.emit()
         except OSError as e:
@@ -338,7 +367,7 @@ class LocalConfig(QtCore.QObject):
 
         if self._settings != settings:
             self._settings.update(settings)
-            self._writeConfig()
+            self.writeConfig()
             self.config_changed_signal.emit()
 
     def loadSectionSettings(self, section, default_settings):
@@ -373,9 +402,8 @@ class LocalConfig(QtCore.QObject):
         self._settings[section] = settings
 
         if changed:
-            log.info("Section %s has missing default values. Adding keys %s Saving configuration", section, ','.join(set(default_settings.keys()) - set(settings.keys())))
-            self._writeConfig()
-
+            log.debug("Section %s has missing default values. Adding keys %s Saving configuration", section, ','.join(set(default_settings.keys()) - set(settings.keys())))
+            self.writeConfig()
         return copy.deepcopy(settings)
 
     def saveSectionSettings(self, section, settings):
@@ -391,8 +419,8 @@ class LocalConfig(QtCore.QObject):
 
         if self._settings[section] != settings:
             self._settings[section].update(copy.deepcopy(settings))
-            log.info("Section %s has changed. Saving configuration", section)
-            self._writeConfig()
+            log.debug("Section %s has changed. Saving configuration", section)
+            self.writeConfig()
         else:
             log.debug("Section %s has not changed. Skip saving configuration", section)
 
@@ -403,6 +431,14 @@ class LocalConfig(QtCore.QObject):
 
         from gns3.settings import GENERAL_SETTINGS
         return self.loadSectionSettings("MainWindow", GENERAL_SETTINGS)["experimental_features"]
+
+    def hdpi(self):
+        """
+        :returns: Boolean. True if hdpi is allowed
+        """
+
+        from gns3.settings import GENERAL_SETTINGS
+        return self.loadSectionSettings("MainWindow", GENERAL_SETTINGS)["hdpi"]
 
     def multiProfiles(self):
         """

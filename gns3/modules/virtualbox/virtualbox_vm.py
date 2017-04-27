@@ -45,7 +45,6 @@ class VirtualBoxVM(Node):
     def __init__(self, module, server, project):
 
         super().__init__(module, server, project)
-        log.info("VirtualBox VM instance is being created")
         self._linked_clone = False
 
         virtualbox_vm_settings = {"vmname": "",
@@ -102,11 +101,6 @@ class VirtualBoxVM(Node):
         :param new_settings: settings (dict)
         """
 
-        if "name" in new_settings and new_settings["name"] != self.name():
-            if self._linked_clone:
-                # forces the update of the VM name in VirtualBox.
-                new_settings["vmname"] = new_settings["name"]
-
         params = {}
         for name, value in new_settings.items():
             if name in self._settings and self._settings[name] != value:
@@ -139,7 +133,7 @@ class VirtualBoxVM(Node):
            state=state,
            vmname=self._settings["vmname"],
            ram=self._settings["ram"],
-           host=self.compute().id(),
+           host=self.compute().name(),
            console=self._settings["console"])
 
         port_info = ""

@@ -20,13 +20,12 @@ Configuration page for GNS3 VM
 """
 
 import copy
+from gns3.qt import QtWidgets, QtCore, qpartial, qslot
+from gns3.controller import Controller
+from ..ui.gns3_vm_preferences_page_ui import Ui_GNS3VMPreferencesPageWidget
 
 import logging
 log = logging.getLogger(__name__)
-
-from gns3.qt import QtWidgets, QtCore, qpartial
-from gns3.controller import Controller
-from ..ui.gns3_vm_preferences_page_ui import Ui_GNS3VMPreferencesPageWidget
 
 
 class GNS3VMPreferencesPage(QtWidgets.QWidget, Ui_GNS3VMPreferencesPageWidget):
@@ -92,22 +91,24 @@ class GNS3VMPreferencesPage(QtWidgets.QWidget, Ui_GNS3VMPreferencesPageWidget):
         else:
             self.uiWhenExitStopRadioButton.setChecked(True)
         self.uiHeadlessCheckBox.setChecked(self._settings["headless"])
-        index = self.uiGNS3VMEngineComboBox.findData(self._settings["engine"])
-        self.uiGNS3VMEngineComboBox.setCurrentIndex(index)
         Controller.instance().get("/gns3vm/engines", self._listEnginesCallback)
 
-    def _listEnginesCallback(self, result, error=False, **kwargs):
+    def _listEnginesCallback(self, result, error=False, ignore_error=False, **kwargs):
         if error:
             if "message" in result:
                 log.error("Error while getting the list of GNS3 VM engines : {}".format(result["message"]))
             return
         self.uiGNS3VMEngineComboBox.clear()
         self._engines = result
+        # We insert first the current engine to avoid triggering unexpected signals
         for engine in self._engines:
-            self.uiGNS3VMEngineComboBox.addItem(engine["name"], engine["engine_id"])
-        index = self.uiGNS3VMEngineComboBox.findData(self._settings["engine"])
-        self.uiGNS3VMEngineComboBox.setCurrentIndex(index)
+            if self._settings["engine"] == engine["engine_id"]:
+                self.uiGNS3VMEngineComboBox.addItem(engine["name"], engine["engine_id"])
+        for engine in self._engines:
+            if self._settings["engine"] != engine["engine_id"]:
+                self.uiGNS3VMEngineComboBox.addItem(engine["name"], engine["engine_id"])
 
+    @qslot
     def _refreshVMSlot(self, ignore_error=False):
         engine_id = self.uiGNS3VMEngineComboBox.currentData()
         if engine_id:

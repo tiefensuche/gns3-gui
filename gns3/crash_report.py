@@ -41,7 +41,7 @@ if __version_info__[3] != 0:
     import faulthandler
     # Display a traceback in case of segfault crash. Usefull when frozen
     # Not enabled by default for security reason
-    log.info("Enable catching segfault")
+    log.debug("Enable catching segfault")
     faulthandler.enable()
 
 
@@ -51,7 +51,7 @@ class CrashReport:
     Report crash to a third party service
     """
 
-    DSN = "sync+https://fe92a87122904a05a846470c3f2557ff:d59b5e4980c8481d8c9fb90cf3516c7d@sentry.io/38506"
+    DSN = "sync+https://3714bcc58dc84a0fa6ee22a40b397efb:9ea472a0119b4b709f9a7027cfbac547@sentry.io/38506"
     if hasattr(sys, "frozen"):
         cacert = get_resource("cacert.pem")
         if cacert is not None and os.path.isfile(cacert):
@@ -104,7 +104,7 @@ class CrashReport:
             except Exception as e:
                 log.error("Can't send crash report to Sentry: {}".format(e))
                 return
-            log.info("Crash report sent with event ID: {}".format(client.get_ident(report)))
+            log.debug("Crash report sent with event ID: {}".format(client.get_ident(report)))
 
     def _add_qt_information(self, context):
         try:

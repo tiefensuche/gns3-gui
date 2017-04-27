@@ -25,22 +25,6 @@ BUILTIN_SETTINGS = {
 }
 
 
-NAT_SETTINGS = {
-    "name": "",
-    "default_name_format": "Nat{0}",
-    "symbol": ":/symbols/cloud.svg",
-    "category": Node.end_devices,
-    "ports_mapping": [],
-}
-
-HOST_ONLY_SETTINGS = {
-    "name": "",
-    "default_name_format": "HostOnly{0}",
-    "symbol": ":/symbols/cloud.svg",
-    "category": Node.end_devices,
-    "ports_mapping": [],
-}
-
 CLOUD_SETTINGS = {
     "name": "",
     "default_name_format": "Cloud{0}",

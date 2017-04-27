@@ -41,11 +41,9 @@ from .dialogs.doctor_dialog import DoctorDialog
 from .dialogs.edit_project_dialog import EditProjectDialog
 from .dialogs.setup_wizard import SetupWizard
 from .settings import GENERAL_SETTINGS
-from .utils.progress_dialog import ProgressDialog
 from .items.node_item import NodeItem
 from .items.link_item import LinkItem
 from .items.shape_item import ShapeItem
-from .items.image_item import ImageItem
 from .topology import Topology
 from .http_client import HTTPClient
 from .progress import Progress
@@ -53,6 +51,8 @@ from .update_manager import UpdateManager
 from .utils.analytics import AnalyticsClient
 from .dialogs.appliance_wizard import ApplianceWizard
 from .dialogs.new_appliance_dialog import NewApplianceDialog
+from .dialogs.notif_dialog import NotifDialog, NotifDialogHandler
+from .status_bar import StatusBarHandler
 from .registry.appliance import ApplianceError
 
 log = logging.getLogger(__name__)
@@ -77,6 +77,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         super().__init__(parent)
         self.setupUi(self)
 
+        self._notif_dialog = NotifDialog(self)
+        # Setup logger
+        logging.getLogger().addHandler(NotifDialogHandler(self._notif_dialog))
+        logging.getLogger().addHandler(StatusBarHandler(self.uiStatusBar))
+
         self._open_file_at_startup = open_file
 
         MainWindow._instance = self
@@ -92,10 +97,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._open_project_path = None
         self._loadSettings()
         self._connections()
-        self._max_recent_files = 5
+        self._maxrecent_files = 5
         self._project_dialog = None
-        self._recent_file_actions = []
-        self._recent_project_actions = []
+        self.recent_file_actions = []
+        self.recent_project_actions = []
         self._start_time = time.time()
         local_config = LocalConfig.instance()
         local_config.config_changed_signal.connect(self._localConfigChangedSlot)
@@ -112,7 +117,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.uiDocksMenu.addAction(self.uiTopologySummaryDockWidget.toggleViewAction())
         self.uiDocksMenu.addAction(self.uiComputeSummaryDockWidget.toggleViewAction())
         self.uiDocksMenu.addAction(self.uiConsoleDockWidget.toggleViewAction())
-        self.uiDocksMenu.addAction(self.uiNodesDockWidget.toggleViewAction())
+        action = self.uiNodesDockWidget.toggleViewAction()
+        action.setIconText("All devices")
+        self.uiDocksMenu.addAction(action)
 
         # make sure the dock widget is not open
         self.uiNodesDockWidget.setVisible(False)
@@ -124,25 +131,25 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._pictures_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.PicturesLocation)
 
         # add recent file actions to the File menu
-        for i in range(0, self._max_recent_files):
+        for i in range(0, self._maxrecent_files):
             action = QtWidgets.QAction(self.uiFileMenu)
             action.setVisible(False)
             action.triggered.connect(self.openRecentFileSlot)
-            self._recent_file_actions.append(action)
-        self.uiFileMenu.insertActions(self.uiQuitAction, self._recent_file_actions)
-        self._recent_file_actions_separator = self.uiFileMenu.insertSeparator(self.uiQuitAction)
-        self._recent_file_actions_separator.setVisible(False)
+            self.recent_file_actions.append(action)
+        self.uiFileMenu.insertActions(self.uiQuitAction, self.recent_file_actions)
+        self.recent_file_actions_separator = self.uiFileMenu.insertSeparator(self.uiQuitAction)
+        self.recent_file_actions_separator.setVisible(False)
         self.updateRecentFileActions()
 
         # add recent projects to the File menu
-        for i in range(0, self._max_recent_files):
+        for i in range(0, self._maxrecent_files):
             action = QtWidgets.QAction(self.uiFileMenu)
             action.setVisible(False)
             action.triggered.connect(self.openRecentProjectSlot)
-            self._recent_project_actions.append(action)
-        self._recent_project_actions_separator = self.uiFileMenu.addSeparator()
-        self._recent_project_actions_separator.setVisible(False)
-        self.uiFileMenu.addActions(self._recent_project_actions)
+            self.recent_project_actions.append(action)
+        self.recent_project_actions_separator = self.uiFileMenu.addSeparator()
+        self.recent_project_actions_separator.setVisible(False)
+        self.uiFileMenu.addActions(self.recent_project_actions)
 
         # set the window icon
         self.setWindowIcon(QtGui.QIcon(":/images/gns3.ico"))
@@ -213,6 +220,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.uiShowPortNamesAction.triggered.connect(self._showPortNamesActionSlot)
         self.uiShowGridAction.triggered.connect(self._showGridActionSlot)
 
+        # tool menu connections
+        self.uiWebInterfaceAction.triggered.connect(self._openWebInterfaceActionSlot)
+
         # control menu connections
         self.uiStartAllAction.triggered.connect(self._startAllActionSlot)
         self.uiSuspendAllAction.triggered.connect(self._suspendAllActionSlot)
@@ -229,6 +239,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.uiInsertImageAction.triggered.connect(self._insertImageActionSlot)
         self.uiDrawRectangleAction.triggered.connect(self._drawRectangleActionSlot)
         self.uiDrawEllipseAction.triggered.connect(self._drawEllipseActionSlot)
+        self.uiDrawLineAction.triggered.connect(self._drawLineActionSlot)
         self.uiEditReadmeAction.triggered.connect(self._editReadmeActionSlot)
 
         # help menu connections
@@ -287,6 +298,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._settings.update(new_settings)
         # save the settings
         LocalConfig.instance().saveSectionSettings(self.__class__.__name__, self._settings)
+
+    def _openWebInterfaceActionSlot(self):
+        if Controller.instance().connected():
+            QtGui.QDesktopServices.openUrl(QtCore.QUrl(Controller.instance().httpClient().fullUrl()))
 
     def _showGridActionSlot(self):
         """
@@ -383,7 +398,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
 
         action = self.sender()
-        if action:
+        if action and action.data():
             if len(action.data()) == 2:
                 project_id, project_path = action.data()
                 Topology.instance().createLoadProject({
@@ -436,6 +451,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Called when a project finish to load
         """
+        project = Topology.instance().project()
+        if project is not None and self._project_dialog:
+            self._project_dialog.reject()
+            self._project_dialog = None
         self._refreshVisibleWidgets()
 
     def _refreshVisibleWidgets(self):
@@ -649,7 +668,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Slot called when starting all the nodes.
         """
-
         project = Topology.instance().project()
         if project is not None:
             project.start_all_nodes()
@@ -722,7 +740,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             return
         self._pictures_dir = os.path.dirname(path)
 
-        image = QtGui.QPixmap(path)
+        QtGui.QPixmap(path)
         self.uiGraphicsView.addImage(path)
 
     def _drawRectangleActionSlot(self):
@@ -738,6 +756,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
 
         self.uiGraphicsView.addEllipse(self.uiDrawEllipseAction.isChecked())
+
+    def _drawLineActionSlot(self):
+        """
+        Slot called when adding a line on the scene.
+        """
+
+        self.uiGraphicsView.addLine(self.uiDrawLineAction.isChecked())
 
     def _onlineHelpActionSlot(self):
         """
@@ -827,8 +852,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.uiNodesDockWidget.setWindowTitle(title)
             self.uiNodesDockWidget.setVisible(True)
-            self.uiNodesView.clear()
-            self.uiNodesView.populateNodesView(category)
+            self.uiNodesDockWidget.populateNodesView(category)
 
     def _localConfigChangedSlot(self):
         """
@@ -902,6 +926,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Slot to edit the README file
         """
         Topology.instance().editReadme()
+
+    def resizeEvent(self, event):
+        self._notif_dialog.resize()
+        super().resizeEvent(event)
 
     def keyPressEvent(self, event):
         """
@@ -1023,7 +1051,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             if self._open_file_at_startup:
                 self.loadPath(self._open_file_at_startup)
                 self._open_file_at_startup = None
-            else:
+            elif Topology.instance().project() is None:
                 self._newProjectActionSlot()
 
         if self._settings["check_for_update"]:
@@ -1064,7 +1092,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 pass
 
         recent_projects.insert(0, key)
-        if len(recent_projects) > self._max_recent_files:
+        if len(recent_projects) > self._maxrecent_files:
             recent_projects.pop()
 
         # write the recent file list
@@ -1087,9 +1115,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 project_id, project_name = project.split(":", maxsplit=1)
 
             if project_id not in [p["project_id"] for p in Controller.instance().projects()]:
+                size -= 1
                 continue
 
-            action = self._recent_project_actions[index]
+            action = self.recent_project_actions[index]
             if project_path and os.path.exists(project_path):
                 action.setText(" {}. {} [{}]".format(index + 1, project_name, project_path))
                 action.setData((project_id, project_path, ))
@@ -1100,16 +1129,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if Controller.instance().isRemote():
             for index in range(0, size):
-                self._recent_project_actions[index].setVisible(True)
-            for index in range(size + 1, self._max_recent_files):
-                self._recent_project_actions[index].setVisible(False)
+                self.recent_project_actions[index].setVisible(True)
+            for index in range(size + 1, self._maxrecent_files):
+                self.recent_project_actions[index].setVisible(False)
 
             if size:
-                self._recent_project_actions_separator.setVisible(True)
+                self.recent_project_actions_separator.setVisible(True)
         else:
-            for action in self._recent_project_actions:
+            for action in self.recent_project_actions:
                 action.setVisible(False)
-            self._recent_project_actions_separator.setVisible(False)
+            self.recent_project_actions_separator.setVisible(False)
 
     def updateRecentFileSettings(self, path):
         """
@@ -1129,7 +1158,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if path in recent_files:
             recent_files.remove(path)
         recent_files.insert(0, path)
-        if len(recent_files) > self._max_recent_files:
+        if len(recent_files) > self._maxrecent_files:
             recent_files.pop()
 
         # write the recent file list
@@ -1146,7 +1175,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for file_path in self._settings["recent_files"]:
             try:
                 if file_path and os.path.exists(file_path):
-                    action = self._recent_file_actions[index]
+                    action = self.recent_file_actions[index]
                     action.setText(" {}. {}".format(index + 1, os.path.basename(file_path)))
                     action.setData(file_path)
                     action.setVisible(True)
@@ -1157,15 +1186,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 pass
 
         if not Controller.instance().isRemote():
-            for index in range(size + 1, self._max_recent_files):
-                self._recent_file_actions[index].setVisible(False)
+            for index in range(size + 1, self._maxrecent_files):
+                self.recent_file_actions[index].setVisible(False)
 
             if size:
-                self._recent_file_actions_separator.setVisible(True)
+                self.recent_file_actions_separator.setVisible(True)
         else:
-            for index in range(0, self._max_recent_files):
-                self._recent_file_actions[index].setVisible(False)
-            self._recent_file_actions_separator.setVisible(False)
+            for index in range(0, self._maxrecent_files):
+                self.recent_file_actions[index].setVisible(False)
+            self.recent_file_actions_separator.setVisible(False)
 
     def _controllerConnectedSlot(self):
         self.updateRecentFileActions()
@@ -1202,11 +1231,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             Topology.instance().importProject(path)
 
     def _editProjectActionSlot(self):
+        if Topology.instance().project() is None:
+            return
         dialog = EditProjectDialog(self)
         dialog.show()
         dialog.exec_()
 
     def _deleteProjectActionSlot(self):
+        if Topology.instance().project() is None:
+            return
         reply = QtWidgets.QMessageBox.warning(
             self,
             "GNS3",

@@ -15,14 +15,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sip
 import json
 import copy
-import ipaddress
 import http
 import uuid
 import pathlib
-import urllib.request
 import base64
+import datetime
+import ipaddress
+import urllib.request
 
 from .version import __version__, __version_info__
 from .qt import QtCore, QtNetwork, qpartial, sip_is_deleted
@@ -62,10 +64,13 @@ class HTTPClient(QtCore.QObject):
 
         self._protocol = settings.get("protocol", "http")
         self._host = settings["host"]
-        if self._host is None or self._host == "0.0.0.0":
-            self._host = "127.0.0.1"
-        elif ":" in self._host and str(ipaddress.IPv6Address(self._host)) == "::":
-            self._host = "::1"
+        try:
+            if self._host is None or self._host == "0.0.0.0":
+                self._host = "127.0.0.1"
+            elif ":" in self._host and ipaddress.IPv6Address(self._host) and str(ipaddress.IPv6Address(self._host)) == "::":
+                self._host = "::1"
+        except ipaddress.AddressValueError:
+            log.error("Invalid host name %s", self._host)
         self._port = int(settings["port"])
         self._user = settings.get("user", None)
         self._password = settings.get("password", None)
@@ -75,16 +80,23 @@ class HTTPClient(QtCore.QObject):
         self._shutdown = False  # Shutdown in progress
         self._accept_insecure_certificate = settings.get("accept_insecure_certificate", None)
 
+        # In order to detect computer hibernation we detect the date of the last
+        # query and disconnect if time is too long between two query
+        self._last_query_timestamp = None
+        self._max_time_difference_between_queries = None
+
         if network_manager:
             self._network_manager = network_manager
         else:
             self._network_manager = QtNetwork.QNetworkAccessManager()
-
         # A buffer used by progress download
         self._buffer = {}
 
         # List of query waiting for the connection
         self._query_waiting_connections = []
+
+    def setMaxTimeDifferenceBetweenQueries(self, value):
+        self._max_time_difference_between_queries = value
 
     def host(self):
         """
@@ -185,7 +197,9 @@ class HTTPClient(QtCore.QObject):
         Called when a query download progress
         """
         if not sip_is_deleted(HTTPClient._progress_callback):
-            HTTPClient._progress_callback.progress_signal.emit(query_id, sent, total)
+            # abs() for maxium because sometimes the system send negative
+            # values
+            HTTPClient._progress_callback.progress_signal.emit(query_id, sent, abs(total))
 
     @classmethod
     def setProgressCallback(cls, progress_callback):
@@ -208,6 +222,7 @@ class HTTPClient(QtCore.QObject):
         Closes the connection with the server.
         """
         self._connected = False
+        self._progress_callback.reset()
 
     def _request(self, url):
         """
@@ -228,7 +243,17 @@ class HTTPClient(QtCore.QObject):
         :param query: The Server to connect
         """
 
-    def createHTTPQuery(self, method, path, callback, body={}, context={}, downloadProgressCallback=None, showProgress=True, ignoreErrors=False, progressText=None, timeout=120, server=None, prefix="/v2", params={}, **kwargs):
+    def createHTTPQuery(self, method, path, callback, body={}, context={},
+                        downloadProgressCallback=None,
+                        showProgress=True,
+                        ignoreErrors=False,
+                        progressText=None,
+                        timeout=120,
+                        server=None,
+                        prefix="/v2",
+                        params={},
+                        networkManager=None,
+                        **kwargs):
         """
         Call the remote server, if not connected, check connection before
 
@@ -244,6 +269,7 @@ class HTTPClient(QtCore.QObject):
         :param server: The server where the query will run
         :param timeout: Delay in seconds before raising a timeout
         :param prefix: Prefix to the path
+        :param networkManager: QNetworkAccessManager None use the default
         :param params: Query arguments parameters
         :returns: QNetworkReply
         """
@@ -252,7 +278,27 @@ class HTTPClient(QtCore.QObject):
         if self._shutdown:
             return
 
-        request = qpartial(self._executeHTTPQuery, method, path, qpartial(callback), body, context, downloadProgressCallback=downloadProgressCallback, showProgress=showProgress, ignoreErrors=ignoreErrors, progressText=progressText, server=server, timeout=timeout, prefix=prefix, params=params)
+        # We try to detect computer hibernation
+        # if time between two query is too long we trigger a disconnect
+        if self._max_time_difference_between_queries:
+            now = datetime.datetime.now().timestamp()
+            if self._last_query_timestamp is not None and now > self._last_query_timestamp + self._max_time_difference_between_queries:
+                log.warning("Synchronisation lost with the server.")
+                self.disconnect()
+                self._last_query_timestamp = None
+                return
+            self._last_query_timestamp = now
+
+        request = qpartial(self._executeHTTPQuery, method, path, qpartial(callback), body, context,
+                           downloadProgressCallback=downloadProgressCallback,
+                           showProgress=showProgress,
+                           ignoreErrors=ignoreErrors,
+                           progressText=progressText,
+                           networkManager=networkManager,
+                           server=server,
+                           timeout=timeout,
+                           prefix=prefix,
+                           params=params)
 
         if self._connected:
             return request()
@@ -260,8 +306,8 @@ class HTTPClient(QtCore.QObject):
             self._query_waiting_connections.append((request, callback))
             # If we are not connected and we enqueue the first query we open the conection
             if len(self._query_waiting_connections) == 1:
-                log.info("Connection to {}".format(self.url()))
-                self._executeHTTPQuery("GET", "/version", self._callbackConnect, {}, server=server, timeout=5)
+                log.debug("Connection to {}".format(self.url()))
+                self._executeHTTPQuery("GET", "/version", self._callbackConnect, {}, server=server, timeout=5, showProgress=False)
 
     def _connectionError(self, callback, msg="", server=None):
         """
@@ -318,7 +364,7 @@ class HTTPClient(QtCore.QObject):
             self._query_waiting_connections = []
             return
 
-        if params["version"] != __version__:
+        if params["version"].split("-")[0] != __version__.split("-")[0]:
             msg = "Client version {} differs with server version {}".format(__version__, params["version"])
             log.error(msg)
             # Stable release
@@ -392,7 +438,7 @@ class HTTPClient(QtCore.QObject):
             request.setRawHeader(b"Authorization", auth_string.encode())
         return request
 
-    def _executeHTTPQuery(self, method, path, callback, body, context={}, downloadProgressCallback=None, showProgress=True, ignoreErrors=False, progressText=None, server=None, timeout=120, prefix="/v2", params={}, **kwargs):
+    def _executeHTTPQuery(self, method, path, callback, body, context={}, downloadProgressCallback=None, showProgress=True, ignoreErrors=False, progressText=None, server=None, timeout=120, prefix="/v2", params={}, networkManager=None, **kwargs):
         """
         Call the remote server
 
@@ -403,6 +449,7 @@ class HTTPClient(QtCore.QObject):
         :param context: Pass a context to the response callback
         :param downloadProgressCallback: Callback called when received something, it can be an incomplete response
         :param showProgress: Display progress to the user
+        :param networkManager: The network manager to use. If None use default
         :param progressText: Text display to user in progress dialog. None for auto generated
         :param ignoreErrors: Ignore connection error (usefull to not closing a connection when notification feed is broken)
         :param server: The server where the query is executed
@@ -410,10 +457,6 @@ class HTTPClient(QtCore.QObject):
         :param params: Query arguments parameters
         :returns: QNetworkReply
         """
-
-        # TODO: remove it when all call are migrated
-        if "compute/" in path:
-            log.warning("Legacy compute direct call %s", path)
 
         try:
             ip = self._host.rsplit('%', 1)[0]
@@ -442,12 +485,16 @@ class HTTPClient(QtCore.QObject):
         # By default QT doesn't support GET with body even if it's in the RFC that's why we need to use sendCustomRequest
         body = self._addBodyToRequest(body, request)
 
-        response = self._network_manager.sendCustomRequest(request, method.encode(), body)
+        if not networkManager:
+            networkManager = self._network_manager
+
+        response = networkManager.sendCustomRequest(request, method.encode(), body)
 
         context = copy.copy(context)
         context["query_id"] = str(uuid.uuid4())
 
         response.finished.connect(qpartial(self._processResponse, response, server, callback, context, body, ignoreErrors))
+        response.error.connect(qpartial(self._processError, response, server, callback, context, body, ignoreErrors))
 
         if downloadProgressCallback is not None:
             response.readyRead.connect(qpartial(self._readyReadySlot, response, downloadProgressCallback, context, server))
@@ -504,39 +551,41 @@ class HTTPClient(QtCore.QObject):
         Beware it's call for all request you need to check the status of the response
         """
         # We check if we received HTTP headers
-        if not len(response.rawHeaderList()) > 0:
-            response.abort()
+        if not sip.isdeleted(response) and response.isRunning() and not len(response.rawHeaderList()) > 0:
+            if not response.error() != QtNetwork.QNetworkReply.NoError:
+                log.warn("Timeout request {}".format(response.url().toString()))
+                response.abort()
+
+    def disconnect(self):
+        """
+        Disconnect from the remote server
+        """
+        self.connection_disconnected_signal.emit()
+        self.close()
 
     def _requestCanceled(self, response, context):
 
-        if response.isRunning():
-            log.warn("Aborting request for {}".format(response.url()))
+        if response.isRunning() and not response.error() != QtNetwork.QNetworkReply.NoError:
+            log.warn("Aborting request for {}".format(response.url().toString()))
             response.abort()
         if "query_id" in context:
             self._notify_progress_end_query(context["query_id"])
 
-    def _processResponse(self, response, server, callback, context, request_body, ignore_errors):
-
-        if request_body is not None:
-            request_body.close()
-
-        status = None
-        body = None
-
-        if "query_id" in context:
-            self._notify_progress_end_query(context["query_id"])
-
-        if response.error() != QtNetwork.QNetworkReply.NoError:
-            error_code = response.error()
+    def _processError(self, response, server, callback, context, request_body, ignore_errors, error_code):
+        if error_code != QtNetwork.QNetworkReply.NoError:
             error_message = response.errorString()
 
             if not ignore_errors:
-                log.debug("Response error: %s (error: %d)", error_message, error_code)
+                log.debug("Response error: %s for %s (error: %d)", error_message, response.url().toString(), error_code)
 
-            if error_code < 200:
-                if not ignore_errors:
-                    self.connection_disconnected_signal.emit()
-                    self.close()
+            if "query_id" in context:
+                self._notify_progress_end_query(context["query_id"])
+
+            if error_code < 200 or error_code == 403:
+                if error_code == QtNetwork.QNetworkReply.OperationCanceledError:  # It's legit to cancel do not disconnect
+                    error_message = "Operation timeout"  # It's more clear than cancel, because cancel is trigger by us when we timeout
+                elif not ignore_errors:
+                    self.disconnect()
                 if callback is not None:
                     callback({"message": error_message}, error=True, server=server, context=context)
                 return
@@ -567,7 +616,15 @@ class HTTPClient(QtCore.QObject):
                     log.error(json.loads(body)["message"])
                 except (ValueError, KeyError):
                     log.error(error_message)
-        else:
+
+    def _processResponse(self, response, server, callback, context, request_body, ignore_errors):
+        if request_body is not None:
+            request_body.close()
+
+        if "query_id" in context:
+            self._notify_progress_end_query(context["query_id"])
+
+        if response.error() == QtNetwork.QNetworkReply.NoError:
             status = response.attribute(QtNetwork.QNetworkRequest.HttpStatusCodeAttribute)
             log.debug("Decoding response from {} response {}".format(response.url().toString(), status))
             try:
@@ -587,16 +644,15 @@ class HTTPClient(QtCore.QObject):
                     callback(params, error=True, server=server, context=context)
                 else:
                     callback(params, server=server, context=context, raw_body=raw_body)
-        # response.deleteLater()
-        if status == 400:
-            try:
-                params = json.loads(body)
-                e = HttpBadRequest(body)
-                e.fingerprint = params["path"]
-            # If something goes wrong for a any reason just raise the bad request
-            except Exception:
-                e = HttpBadRequest(body)
-            raise e
+            if status == 400:
+                try:
+                    params = json.loads(body)
+                    e = HttpBadRequest(body)
+                    e.fingerprint = params["path"]
+                # If something goes wrong for a any reason just raise the bad request
+                except Exception:
+                    e = HttpBadRequest(body)
+                raise e
 
     def getSynchronous(self, endpoint, timeout=2):
         """

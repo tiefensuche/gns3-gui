@@ -15,11 +15,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import platform
 import sys
+import sip
 import struct
 import inspect
 import datetime
+import platform
 
 from .qt import QtCore, Qt
 from .topology import Topology
@@ -39,6 +40,9 @@ class ConsoleLogHandler(logging.StreamHandler):
     """
 
     def emit(self, record):
+        if sip.isdeleted(self._console_view):
+            return
+
         message = self.format(record)
         level_no = record.levelno
         if level_no >= logging.ERROR:
@@ -187,11 +191,9 @@ class ConsoleView(PyCutExt, ConsoleCmd):
         """
 
         text = "Server notification: {}".format(message)
-        self.write(text, error=True)
-        self.write("\n")
         if details:
-            self.write(details)
-            self.write("\n")
+            text += "\n" + details
+        self.write_message_signal.emit(text, "info")
 
     def writeError(self, base_node_id, message):
         """
@@ -208,8 +210,7 @@ class ConsoleView(PyCutExt, ConsoleCmd):
 
         text = "Error:{name} {message}".format(name=name,
                                                message=message)
-        self.write(text, error=True)
-        self.write("\n")
+        self.write_message_signal.emit(text, "error")
 
     def writeWarning(self, base_node_id, message):
         """
@@ -226,8 +227,7 @@ class ConsoleView(PyCutExt, ConsoleCmd):
 
         text = "Warning:{name} {message}".format(name=name,
                                                  message=message)
-        self.write(text, warning=True)
-        self.write("\n")
+        self.write_message_signal.emit(text, "warning")
 
     def writeServerError(self, base_node_id, message):
         """
@@ -248,8 +248,7 @@ class ConsoleView(PyCutExt, ConsoleCmd):
         text = "Server error {server}:{name} {message}".format(server=server,
                                                                name=name,
                                                                message=message)
-        self.write(text.strip(), error=True)
-        self.write("\n")
+        self.write_message_signal.emit(text.strip(), "error")
 
     def _run(self):
         """

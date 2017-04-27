@@ -27,12 +27,11 @@ import sys
 import sip
 import os
 import re
-import types
-import functools
 import inspect
+import functools
 
 import logging
-log = logging.getLogger(__name__)
+log = logging.getLogger("qt/__init__.py")
 
 from PyQt5 import QtCore, QtGui, QtNetwork, QtWidgets, Qt
 sys.modules[__name__ + '.QtCore'] = QtCore
@@ -107,17 +106,34 @@ class LogQMessageBox(QtWidgets.QMessageBox):
     """
     @staticmethod
     def critical(parent, title, message, *args):
-        log.critical(re.sub(r"<[^<]+?>", "", message), stack_info=LogQMessageBox.stack_info())
+        LogQMessageBox._get_logger().critical(re.sub(r"<[^<]+?>", "", message), stack_info=LogQMessageBox.stack_info())
         if sip_is_deleted(parent):
             return
         return super(QtWidgets.QMessageBox, QtWidgets.QMessageBox).critical(parent, title, message, *args)
 
     @staticmethod
     def warning(parent, title, message, *args):
-        log.warning(re.sub(r"<[^<]+?>", "", message))
+        LogQMessageBox._get_logger().warning(re.sub(r"<[^<]+?>", "", message))
         if sip_is_deleted(parent):
             return
         return super(QtWidgets.QMessageBox, QtWidgets.QMessageBox).warning(parent, title, message, *args)
+
+    @staticmethod
+    def _get_logger():
+        """
+        Return a logger in the context of the caller
+        in order to have the correct informations in the log
+        """
+        if sys.version_info < (3, 5):
+            return logging.getLogger('qt')
+        try:
+            caller = inspect.stack()[2]
+            location = "{}:{}".format(os.path.basename(caller.filename), caller.lineno)
+        except:
+            # If anything go wrong during the format return the standard logger
+            # for unknonw reason sometimes we don't have the caller info
+            return logging.getLogger('qt')
+        return logging.getLogger(location)
 
     @staticmethod
     def stack_info():
@@ -239,3 +255,11 @@ def qslot(func):
                 return lambda: True
         return func(*args, **kwargs)
     return func_wrapper
+
+
+# Log qt error to Python log
+def myQtMsgHandler(msg_type, msg_log_context, msg_string):
+    log.error(msg_string)
+
+
+QtCore.qInstallMessageHandler(myQtMsgHandler)

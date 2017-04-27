@@ -27,6 +27,9 @@ from ..pages.packet_capture_preferences_page import PacketCapturePreferencesPage
 from ..pages.gns3_vm_preferences_page import GNS3VMPreferencesPage
 from ..modules import MODULES
 
+import logging
+log = logging.getLogger(__name__)
+
 
 class PreferencesDialog(QtWidgets.QDialog, Ui_PreferencesDialog):
 
@@ -41,6 +44,7 @@ class PreferencesDialog(QtWidgets.QDialog, Ui_PreferencesDialog):
         super().__init__(parent)
 
         self.setupUi(self)
+        self._modified_pages = set()
 
         # We adapt the max size to the screen resolution
         # We need to manually do that otherwise on small screen the windows
@@ -102,6 +106,7 @@ class PreferencesDialog(QtWidgets.QDialog, Ui_PreferencesDialog):
             parent = self.uiTreeWidget
             for cls in preference_pages:
                 preferences_page = cls()
+                preferences_page.setParent(self)
                 preferences_page.loadPreferences()
                 name = preferences_page.windowTitle()
                 item = QtWidgets.QTreeWidgetItem(parent)
@@ -141,17 +146,23 @@ class PreferencesDialog(QtWidgets.QDialog, Ui_PreferencesDialog):
         """
 
         # Found the page with the change
-        widget = self.sender()
+        widget = sender = self.sender()
         while widget.parent() != self.uiStackedWidget:
             widget = widget.parent()
 
-        self.addModifiedPage(widget)
+        if self.addModifiedPage(widget):
+            log.debug("%s value has changed", sender.objectName())
 
     def addModifiedPage(self, widget):
+        """
+        :returns: True is the page is initialized and element added
+        """
         # The widget can trigger signal before the end of init due to async api call
         if not hasattr(widget, 'pageInitialized') or widget.pageInitialized():
             self._applyButton.setEnabled(True)
             self._modified_pages.add(widget)
+            return True
+        return False
 
     def _showPreferencesPageSlot(self, current, previous):
         """
@@ -183,7 +194,7 @@ class PreferencesDialog(QtWidgets.QDialog, Ui_PreferencesDialog):
         """
 
         success = True
-        for preferences_page in self._modified_pages:
+        for preferences_page in list(self._modified_pages):
             ok = preferences_page.savePreferences()
             # if page.savePreferences() returns None, assume success
             if ok is not None and not ok:

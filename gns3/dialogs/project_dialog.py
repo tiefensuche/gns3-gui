@@ -71,6 +71,7 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
         self.uiRefreshProjectsPushButton.clicked.connect(Controller.instance().refreshProjectList)
         Controller.instance().project_list_updated_signal.connect(self._updateProjectListSlot)
         self._updateProjectListSlot()
+        Controller.instance().refreshProjectList()
 
     def _settingsClickedSlot(self):
         """
@@ -101,13 +102,7 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
                 projects_to_delete.add(project_id)
 
         for project_id in projects_to_delete:
-            Controller.instance().delete("/projects/{}".format(project_id), self._deleteProjectCallback)
-
-    def _deleteProjectCallback(self, result, error=False, **kwargs):
-        if error:
-            log.error("Error while deleting project: {}".format(result["message"]))
-            return
-        Controller.instance().refreshProjectList()
+            Controller.instance().deleteProject(project_id)
 
     def _duplicateProjectSlot(self):
         if len(self.uiProjectsTreeWidget.selectedItems()) == 0:
@@ -225,10 +220,10 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
         menu = QtWidgets.QMenu()
         menu.triggered.connect(self._menuTriggeredSlot)
         if Controller.instance().isRemote():
-            for action in self._main_window._recent_project_actions:
+            for action in self._main_window.recent_project_actions:
                 menu.addAction(action)
         else:
-            for action in self._main_window._recent_file_actions:
+            for action in self._main_window.recent_file_actions:
                 menu.addAction(action)
         menu.exec_(QtGui.QCursor.pos())
 
@@ -250,7 +245,7 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
             self._project_settings.pop("project_path", None)
             self._project_settings.pop("project_files_dir", None)
         else:
-            project_location = self.uiLocationLineEdit.text()
+            project_location = self.uiLocationLineEdit.text().strip()
             if not project_location:
                 QtWidgets.QMessageBox.critical(self, "New project", "Project location is empty")
                 return False
@@ -269,7 +264,7 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
                 if existing_project["status"] == "opened":
                     QtWidgets.QMessageBox.critical(self,
                                                    "New project",
-                                                   "Project {} is running you can not overwrite it".format(self._project_settings["project_name"]))
+                                                   "Project {} is open you can not overwrite it".format(self._project_settings["project_name"]))
                     return False
 
                 reply = QtWidgets.QMessageBox.warning(self,
@@ -279,7 +274,7 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
                                                       QtWidgets.QMessageBox.No)
 
                 if reply == QtWidgets.QMessageBox.Yes:
-                    Controller.instance().delete("/projects/{}".format(existing_project["project_id"]), self._overwriteProjectCallback)
+                    Controller.instance().deleteProject(existing_project["project_id"], self._overwriteProjectCallback)
 
                 # In all cases we cancel the new project and if project success to delete
                 # we will call done again

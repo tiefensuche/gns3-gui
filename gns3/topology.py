@@ -36,7 +36,6 @@ from .dialogs.file_editor_dialog import FileEditorDialog
 
 from .modules import MODULES
 from .modules.module_error import ModuleError
-from .items.node_item import NodeItem
 from .compute_manager import ComputeManager
 from .controller import Controller
 
@@ -259,6 +258,9 @@ It is your responsability to check if you have the right to distribute the image
 
     def saveProjectAs(self):
         project = self._project
+        if not project:
+            return
+
         from .dialogs.project_dialog import ProjectDialog
         dialog = ProjectDialog(self._main_window, default_project_name=project.name(), show_open_options=False)
         dialog.show()
@@ -543,6 +545,8 @@ It is your responsability to check if you have the right to distribute the image
                     type = "rect"
                 elif tag == "text":
                     type = "text"
+                elif tag == "line":
+                    type = "line"
                 else:
                     type = "image"
         except IndexError:
