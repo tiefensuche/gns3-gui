@@ -85,7 +85,7 @@ class SnapshotsDialog(QtWidgets.QDialog, Ui_SnapshotsDialog):
 
         snapshot_name, ok = QtWidgets.QInputDialog.getText(self, "Snapshot", "Snapshot name:", QtWidgets.QLineEdit.Normal, "Unnamed")
         if ok and snapshot_name and self._project:
-            Controller.instance().post("/projects/{}/snapshots".format(self._project.id()), self._createSnapshotsCallback, {"name": snapshot_name}, timeout=300)
+            Controller.instance().post("/projects/{}/snapshots".format(self._project.id()), self._createSnapshotsCallback, {"name": snapshot_name}, timeout=600)
 
     def _createSnapshotsCallback(self, result, error=False, server=None, context={}, **kwargs):
         if error:
