@@ -250,7 +250,7 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
 
     def _newProject(self):
         self._project_settings["project_name"] = self.uiNameLineEdit.text().strip()
-        if Controller.instance().isRemote():
+        if not Controller.instance().isRemote():
             self._project_settings.pop("project_path", None)
             self._project_settings.pop("project_files_dir", None)
         else:

@@ -514,12 +514,15 @@ It is your responsability to check if you have the right to distribute the image
         if not node_module:
             raise ModuleError("Could not find any module for {}".format(node_class))
 
-        node = node_module.instantiateNode(node_class, ComputeManager.instance().getCompute(node_data["compute_id"]), self._project)
+        node = node_module.instantiateNode(node_class, None, self._project)
         node.createNodeCallback(node_data)
+        node._updatePorts(["test"])
+
 
         self._main_window.uiGraphicsView.createNodeItem(node, node_data["symbol"], node_data["x"], node_data["y"])
 
     def createLink(self, link_data):
+        print("create link")
         source_port = None
         destination_port = None
         if len(link_data["nodes"]) == 2:

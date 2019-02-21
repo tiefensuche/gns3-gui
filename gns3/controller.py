@@ -39,7 +39,7 @@ class Controller(QtCore.QObject):
 
     def __init__(self, parent=None):
         super().__init__()
-        self._connected = False
+        self._connected = True
         self._connecting = False
         self._cache_directory = tempfile.mkdtemp()
         self._http_client = None
@@ -72,6 +72,7 @@ class Controller(QtCore.QObject):
         """
         Is the controller connected
         """
+        print("controller not connected")
         return self._connected
 
     def httpClient(self):
@@ -109,7 +110,7 @@ class Controller(QtCore.QObject):
         """
         Connection process as started
         """
-        self._connected = False
+        self._connected = True
         self._connecting = True
         self.get('/version', self._versionGetSlot)
 
@@ -328,6 +329,15 @@ class Controller(QtCore.QObject):
     @qslot
     def refreshProjectList(self, *args):
         self.get("/projects", self._projectListCallback)
+
+    @property
+    def projects(self):
+        """
+        Returns all projects.
+        :returns: Project instances
+        """
+
+        return self._projects.values()
 
     def _projectListCallback(self, result, error=False, **kwargs):
         if not error:

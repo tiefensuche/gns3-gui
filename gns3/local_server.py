@@ -313,6 +313,8 @@ class LocalServer(QtCore.QObject):
         Try to start the embed gns3 server.
         """
 
+        return True
+
         if not self.shouldLocalServerAutoStart():
             self._http_client = HTTPClient(self._settings)
             Controller.instance().setHttpClient(self._http_client)
@@ -436,6 +438,8 @@ class LocalServer(QtCore.QObject):
         """
         Starts the local server process.
         """
+
+        return True
 
         self._stopping = False
         path = self.localServerPath()

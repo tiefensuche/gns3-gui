@@ -97,7 +97,10 @@ class NodesView(QtWidgets.QTreeWidget):
         display_appliances = set()
 
         if self._show_installed_appliances:
-            for appliance in ApplianceManager.instance().appliances():
+            print(ApplianceManager.instance().appliances())
+            for appliance in ApplianceManager.instance().appliances().values():
+                # print(appliance["category"])
+                print(category)
                 if category is not None and category != CATEGORY_TO_ID[appliance["category"]]:
                     continue
                 if search != "" and search.lower() not in appliance["name"].lower():

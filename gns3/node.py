@@ -200,8 +200,7 @@ class Node(BaseNode):
         assert self._node_id is not None
         body = {"properties": {},
                 "node_type": self.URL_PREFIX,
-                "node_id": self._node_id,
-                "compute_id": self._compute.id()}
+                "node_id": self._node_id}
 
         # We have two kind of properties. The general properties common to all
         # nodes and the specific that we need to put in the properties field
@@ -324,14 +323,11 @@ class Node(BaseNode):
                     break
 
             if new_port is None:
-                if port["link_type"] == "serial":
-                    new_port = SerialPort(port["name"])
-                else:
-                    new_port = EthernetPort(port["name"])
-            new_port.setShortName(port["short_name"])
-            new_port.setAdapterNumber(port["adapter_number"])
-            new_port.setPortNumber(port["port_number"])
-            new_port.setDataLinkTypes(port["data_link_types"])
+                new_port = EthernetPort("name")
+            new_port.setShortName("short_name")
+            new_port.setAdapterNumber(1)
+            new_port.setPortNumber(1)
+            new_port.setDataLinkTypes("data_link_types")
             new_port.setStatus(self.status())
             self._ports.append(new_port)
 

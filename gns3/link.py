@@ -78,7 +78,7 @@ class Link(QtCore.QObject):
         self._capturing = False
         self._capture_file_path = None
         self._capture_file = None
-        self._initialized = False
+        self._initialized = True
         self._filters = {}
         self._suspend = False
 
