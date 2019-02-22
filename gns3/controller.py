@@ -18,6 +18,9 @@
 import os
 import hashlib
 import tempfile
+from uuid import uuid4
+
+from gns3server.compute.project import Project
 
 from .qt import QtCore, QtGui, QtWidgets, qpartial, qslot
 from .symbol import Symbol
@@ -47,7 +50,7 @@ class Controller(QtCore.QObject):
         self._first_error = True
         self._error_dialog = None
         self._display_error = True
-        self._projects = []
+        self._projects = {}
 
         # If we do multiple call in order to download the same symbol we queue them
         self._static_asset_download_queue = {}
@@ -313,7 +316,10 @@ class Controller(QtCore.QObject):
         self.get('/symbols', callback=callback)
 
     def deleteProject(self, project_id, callback=None):
-        Controller.instance().delete("/projects/{}".format(project_id), qpartial(self._deleteProjectCallback, callback=callback, project_id=project_id))
+        # Controller.instance().delete("/projects/{}".format(project_id), qpartial(self._deleteProjectCallback, callback=callback, project_id=project_id))
+        del self._projects[project_id]
+        self.refreshProjectList()
+
 
     def _deleteProjectCallback(self, result, error=False, project_id=None, callback=None, **kwargs):
         if error:
@@ -328,21 +334,27 @@ class Controller(QtCore.QObject):
 
     @qslot
     def refreshProjectList(self, *args):
-        self.get("/projects", self._projectListCallback)
-
-    @property
-    def projects(self):
-        """
-        Returns all projects.
-        :returns: Project instances
-        """
-
-        return self._projects.values()
+        # self.get("/projects", self._projectListCallback)
+        self.create_project(name="test", path="test")
 
     def _projectListCallback(self, result, error=False, **kwargs):
         if not error:
             self._projects = result
         self.project_list_updated_signal.emit()
 
+    def create_project(self, name=None, project_id=None, path=None):
+        """
+        Create a project and keep a references to it in project manager.
+
+        See documentation of Project for arguments
+        """
+
+        if project_id is not None and project_id in self._projects:
+            return self._projects[project_id]
+        project = Project(name=name, project_id=project_id, path=path)
+        self._projects[project.id] = project
+        self.project_list_updated_signal.emit()
+        return project
+
     def projects(self):
-        return self._projects
+        return self._projects.values()

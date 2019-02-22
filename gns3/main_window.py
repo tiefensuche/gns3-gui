@@ -1245,7 +1245,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 project_path = None
                 project_id, project_name = project.split(":", maxsplit=1)
 
-            if project_id not in [p["project_id"] for p in Controller.instance().projects()]:
+            if project_id not in [p.id for p in Controller.instance().projects()]:
                 size -= 1
                 continue
 
