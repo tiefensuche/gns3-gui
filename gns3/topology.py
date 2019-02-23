@@ -282,11 +282,12 @@ It is your responsability to check if you have the right to distribute the image
         dialog = ProjectDialog(self._main_window, default_project_name=project.name(), show_open_options=False)
         dialog.show()
         if dialog.exec_():
-            project.duplicate(
-                name=dialog.getProjectSettings()["project_name"],
-                path=dialog.getProjectSettings().get("project_files_dir"),  # None when using remote controller
-                callback=self._projectImportedSlot
-            )
+            project.dump()
+            # project.duplicate(
+            #     name=dialog.getProjectSettings()["project_name"],
+            #     path=dialog.getProjectSettings().get("project_files_dir"),  # None when using remote controller
+            #     callback=self._projectImportedSlot
+            # )
 
     def _projectImportedSlot(self, project_id):
         if self:
@@ -516,13 +517,12 @@ It is your responsability to check if you have the right to distribute the image
 
         node = node_module.instantiateNode(node_class, None, self._project)
         node.createNodeCallback(node_data)
-        node._updatePorts(["test"])
+        # node._updatePorts(node._settings['ports'])
 
 
         self._main_window.uiGraphicsView.createNodeItem(node, node_data["symbol"], node_data["x"], node_data["y"])
 
     def createLink(self, link_data):
-        print("create link")
         source_port = None
         destination_port = None
         if len(link_data["nodes"]) == 2:
@@ -533,11 +533,14 @@ It is your responsability to check if you have the right to distribute the image
 
             link_side = link_data["nodes"][0]
 
+            source_node._updatePorts([{"name": "eth0", "short_name": "1", "link_type": "ethernet", "data_link_types": "data_link_types", "adapter_number": link_side["adapter_number"], "port_number": link_side["port_number"]}])
             for port in source_node.ports():
                 if port.adapterNumber() == link_side["adapter_number"] and port.portNumber() == link_side["port_number"]:
                     source_port = port
                     break
             link_side = link_data["nodes"][1]
+
+            destination_node._updatePorts([{"name": "eth0", "short_name": "1", "link_type": "ethernet", "data_link_types": "data_link_types", "adapter_number": link_side["adapter_number"], "port_number": link_side["port_number"]}])
             for port in destination_node.ports():
                 if port.adapterNumber() == link_side["adapter_number"] and port.portNumber() == link_side["port_number"]:
                     destination_port = port

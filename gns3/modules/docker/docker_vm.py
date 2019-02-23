@@ -171,3 +171,20 @@ class DockerVM(Node):
 
     def __str__(self):
         return "Docker container"
+
+    def __json__(self):
+        return {
+            "name": "name",
+            "node_id": self._id,
+            "container_id": "self._cid",
+            "project_id": self._project.id(),
+            "image": "self._image",
+            "adapters": "self.adapters",
+            "console": "self.console",
+            "console_type": "self.console_type",
+            "console_resolution": "self.console_resolution",
+            "node_type": "docker",
+            "x": self.x(),
+            "y": self.y(),
+            "z": self.z()
+        }

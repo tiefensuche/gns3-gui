@@ -14,13 +14,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+import json
 import os
 import hashlib
+import shutil
 import tempfile
+import asyncio
 from uuid import uuid4
-
-from gns3server.compute.project import Project
 
 from .qt import QtCore, QtGui, QtWidgets, qpartial, qslot
 from .symbol import Symbol
@@ -56,14 +56,16 @@ class Controller(QtCore.QObject):
         self._static_asset_download_queue = {}
 
     def host(self):
-        return self._http_client.host()
+        return "none" # self._http_client.host()
 
     def isRemote(self):
         """
         :returns Boolean: True if the controller is remote
         """
-        settings = LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)
-        return not settings["auto_start"]
+
+        return False
+        # settings = LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)
+        # return not settings["auto_start"]
 
     def connecting(self):
         """
@@ -75,7 +77,6 @@ class Controller(QtCore.QObject):
         """
         Is the controller connected
         """
-        print("controller not connected")
         return self._connected
 
     def httpClient(self):
@@ -317,6 +318,7 @@ class Controller(QtCore.QObject):
 
     def deleteProject(self, project_id, callback=None):
         # Controller.instance().delete("/projects/{}".format(project_id), qpartial(self._deleteProjectCallback, callback=callback, project_id=project_id))
+        shutil.rmtree(self._projects[project_id].name)
         del self._projects[project_id]
         self.refreshProjectList()
 
@@ -335,7 +337,8 @@ class Controller(QtCore.QObject):
     @qslot
     def refreshProjectList(self, *args):
         # self.get("/projects", self._projectListCallback)
-        self.create_project(name="test", path="test")
+        # self.create_project(name="test", path="test")
+        self.load_projects()
 
     def _projectListCallback(self, result, error=False, **kwargs):
         if not error:
@@ -351,10 +354,83 @@ class Controller(QtCore.QObject):
 
         if project_id is not None and project_id in self._projects:
             return self._projects[project_id]
-        project = Project(name=name, project_id=project_id, path=path)
-        self._projects[project.id] = project
+        project = {"name": name, "id": project_id, "path": path}
+        self._projects[project['id']] = project
         self.project_list_updated_signal.emit()
         return project
 
     def projects(self):
         return self._projects.values()
+
+    def load_topology(self, path):
+        """
+        Open a topology file, patch it for last GNS3 release and return it
+        """
+        log.debug("Read topology %s", path)
+        try:
+            with open(path, encoding="utf-8") as f:
+                topo = json.load(f)
+        except (OSError, UnicodeDecodeError, ValueError) as e:
+            raise Exception("Could not load topology {}: {}".format(path, str(e)))
+
+        return topo
+
+    def add_project(self, project_id=None, name=None, **kwargs):
+        """
+        Creates a project or returns an existing project
+
+        :param project_id: Project ID
+        :param name: Project name
+        :param kwargs: See the documentation of Project
+        """
+        if project_id not in self._projects:
+
+            # for project in self._projects.values():
+                # if name and project.name == name:
+                #     raise aiohttp.web.HTTPConflict(text='Project name "{}" already exists'.format(name))
+            projects_path = os.path.expanduser("~/GNS3/projects")
+            path = os.path.join(projects_path, name)
+            project = {"id": project_id, "name": name, "path": path, **kwargs}
+            self._projects[project_id] = project
+            return self._projects[project_id]
+        return self._projects[project_id]
+
+    def load_project(self, path, load=True):
+        """
+        Load a project from a .gns3
+
+        :param path: Path of the .gns3
+        :param load: Load the topology
+        """
+        topo_data = self.load_topology(path)
+        topo_data.pop("topology")
+        topo_data.pop("version")
+        topo_data.pop("revision")
+        topo_data.pop("type")
+
+        if topo_data["project_id"] in self._projects:
+            project = self._projects[topo_data["project_id"]]
+        else:
+            project = self.add_project(path=os.path.dirname(path), status="closed", filename=os.path.basename(path), **topo_data)
+        # if load:
+        #     project.open()
+        return project
+
+    def load_projects(self):
+        """
+        Preload the list of projects from disk
+        """
+        # server_config = Config.instance().get_section_config("Server")
+        projects_path = os.path.expanduser("~/GNS3/projects")
+        os.makedirs(projects_path, exist_ok=True)
+        try:
+            for project_path in os.listdir(projects_path):
+                project_dir = os.path.join(projects_path, project_path)
+                if os.path.isdir(project_dir):
+                    for file in os.listdir(project_dir):
+                        if file.endswith(".gns3"):
+                            self.load_project(os.path.join(project_dir, file), load=False)
+        except OSError as e:
+            log.error(str(e))
+        self.project_list_updated_signal.emit()
+

@@ -290,7 +290,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         link = Link(source_node, source_port, destination_node, destination_port, **link_data)
         # connect the signals that let the graphics view knows about events such as
         # a new link creation or deletion.
-        print("add link")
         if self._topology.addLink(link):
             link.add_link_signal.connect(self.addLinkSlot)
             link.delete_link_signal.connect(self.deleteLinkSlot)

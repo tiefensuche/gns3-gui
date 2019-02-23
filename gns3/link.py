@@ -455,3 +455,8 @@ class Link(QtCore.QObject):
         :params filters: List of filters
         """
         self._filters = filters
+
+    def __json__(self):
+        return {
+            "name": "link"
+        }

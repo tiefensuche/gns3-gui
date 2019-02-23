@@ -24,6 +24,7 @@ import os
 import time
 import logging
 
+from gns3.project import Project
 from .local_config import LocalConfig
 from .local_server import LocalServer
 from .modules import MODULES
@@ -481,7 +482,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 QtWidgets.QMessageBox.critical(self, "Open project", "Cannot open a .gns3 file on a remote server, please use a portable project (.gns3p) instead")
                 return
             else:
-                Topology.instance().loadProject(path)
+                project = Project()
+                project.setFilesDir(os.path.dirname(path))
+                project.setFilename(os.path.basename(path))
+                project.open()
         else:
             try:
                 extension = path.split('.')[1]
@@ -1245,7 +1249,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 project_path = None
                 project_id, project_name = project.split(":", maxsplit=1)
 
-            if project_id not in [p.id for p in Controller.instance().projects()]:
+            if project_id not in [p["id"] for p in Controller.instance().projects()]:
                 size -= 1
                 continue
 

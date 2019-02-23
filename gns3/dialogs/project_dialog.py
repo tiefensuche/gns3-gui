@@ -155,10 +155,10 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
         self.uiProjectsTreeWidget.setUpdatesEnabled(False)
         items = []
         for project in Controller.instance().projects():
-            path = project.path # os.path.join(project["path"], project["filename"])
-            item = QtWidgets.QTreeWidgetItem([project.name, "status", path])
-            item.setData(0, QtCore.Qt.UserRole, project.id)
-            item.setData(1, QtCore.Qt.UserRole, project.name)
+            path = project["path"] # os.path.join(project["path"], project["filename"])
+            item = QtWidgets.QTreeWidgetItem([project["name"], "status", path])
+            item.setData(0, QtCore.Qt.UserRole, project["id"])
+            item.setData(1, QtCore.Qt.UserRole, project["name"])
             item.setData(2, QtCore.Qt.UserRole, path)
             items.append(item)
         self.uiProjectsTreeWidget.addTopLevelItems(items)
@@ -250,7 +250,7 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
 
     def _newProject(self):
         self._project_settings["project_name"] = self.uiNameLineEdit.text().strip()
-        if not Controller.instance().isRemote():
+        if Controller.instance().isRemote():
             self._project_settings.pop("project_path", None)
             self._project_settings.pop("project_files_dir", None)
         else:
@@ -267,7 +267,7 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
             return False
 
         for existing_project in Controller.instance().projects():
-            if self._project_settings["project_name"] == existing_project.__json__()["name"] \
+            if self._project_settings["project_name"] == existing_project["name"] \
                or ("project_files_dir" in self._project_settings and self._project_settings["project_files_dir"] == existing_project["path"]):
 
                 if False: # existing_project["status"] == "opened":
@@ -282,9 +282,9 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
                                                       QtWidgets.QMessageBox.Yes,
                                                       QtWidgets.QMessageBox.No)
 
-                #if reply == QtWidgets.QMessageBox.Yes:
-                #    Controller.instance().deleteProject(existing_project.id, self._overwriteProjectCallback)
-
+                if reply == QtWidgets.QMessageBox.Yes:
+                    Controller.instance().deleteProject(existing_project.id, self._overwriteProjectCallback)
+                    # self.done(True)
                 # In all cases we cancel the new project and if project success to delete
                 # we will call done again
                 # return False

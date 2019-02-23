@@ -316,18 +316,38 @@ class Node(BaseNode):
             new_port = None
 
             # Update port if already exist
+            # for old_port in old_ports:
+            #     if old_port.adapterNumber() == port["adapter_number"] and old_port.portNumber() == port["port_number"] and old_port.name() == port["name"]:
+            #         new_port = old_port
+            #         old_ports.remove(old_port)
+            #         break
+            #
+            # if new_port is None:
+            #     new_port = EthernetPort("name")
+            # new_port.setShortName("short_name")
+            # new_port.setAdapterNumber(1)
+            # new_port.setPortNumber(1)
+            # new_port.setDataLinkTypes("data_link_types")
+            # new_port.setStatus(self.status())
+            # self._ports.append(new_port)
+
+            # Update port if already exist
             for old_port in old_ports:
-                if old_port.adapterNumber() == port["adapter_number"] and old_port.portNumber() == port["port_number"] and old_port.name() == port["name"]:
+                if old_port.adapterNumber() == port["adapter_number"] and old_port.portNumber() == port[
+                    "port_number"] and old_port.name() == port["name"]:
                     new_port = old_port
                     old_ports.remove(old_port)
                     break
 
             if new_port is None:
-                new_port = EthernetPort("name")
-            new_port.setShortName("short_name")
-            new_port.setAdapterNumber(1)
-            new_port.setPortNumber(1)
-            new_port.setDataLinkTypes("data_link_types")
+                if port["link_type"] == "serial":
+                    new_port = SerialPort(port["name"])
+                else:
+                    new_port = EthernetPort(port["name"])
+            new_port.setShortName(port["short_name"])
+            new_port.setAdapterNumber(port["adapter_number"])
+            new_port.setPortNumber(port["port_number"])
+            new_port.setDataLinkTypes(port["data_link_types"])
             new_port.setStatus(self.status())
             self._ports.append(new_port)
 

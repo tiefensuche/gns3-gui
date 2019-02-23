@@ -17,6 +17,11 @@
 
 import os
 import json
+import shutil
+import uuid
+
+# from gns3server.controller.topology import GNS3_FILE_FORMAT_REVISION
+
 from .qt import QtCore, qpartial, QtWidgets, QtNetwork, qslot
 
 from gns3.controller import Controller
@@ -634,3 +639,175 @@ class Project(QtCore.QObject):
             ApplianceManager.instance().refresh()
         elif result["action"] == "ping":
             pass
+
+    def project_to_topology(project):
+        """
+        :return: A dictionnary with the topology ready to dump to a .gns3
+        """
+        data = {
+            "project_id": project.id(),
+            "name": project.name(),
+            "auto_start": project._auto_start,
+            "auto_open": project._auto_open,
+            "auto_close": project._auto_close,
+            "scene_width": project._scene_width,
+            "scene_height": project._scene_height,
+            "zoom": project._zoom,
+            "show_layers": project._show_layers,
+            "snap_to_grid": project._snap_to_grid,
+            "show_grid": project._show_grid,
+            "show_interface_labels": project._show_interface_labels,
+            "topology": {
+                "nodes": [],
+                "links": [],
+                "computes": [],
+                "drawings": []
+            },
+            "type": "topology",
+            "revision": "GNS3_FILE_FORMAT_REVISION",
+            "version": "0.1"
+        }
+
+        topo = Topology.instance()
+        computes = set()
+        for node in topo.nodes():
+            computes.add(node.compute)
+            data["topology"]["nodes"].append(node.__json__())
+        for link in topo.links():
+            data["topology"]["links"].append(link.__json__())
+        for drawing in topo.drawings():
+            data["topology"]["drawings"].append(drawing.__json__())
+        for compute in computes:
+            if hasattr(compute, "__json__"):
+                compute = compute.__json__()
+                if compute["compute_id"] not in ("vm", "local",):
+                    data["topology"]["computes"].append(compute)
+        # _check_topology_schema(data)
+        print(data)
+        return data
+
+
+    def dump(self):
+        """
+        Dump topology to disk
+        """
+        try:
+            topo = self.project_to_topology()
+            path = self.path()
+            os.makedirs(os.path.dirname(self.path()), exist_ok=True)
+            log.debug("Write %s", path)
+            with open(path + ".tmp", "w+", encoding="utf-8") as f:
+                json.dump(topo, f, indent=4, sort_keys=True)
+            shutil.move(path + ".tmp", path)
+        except OSError as e:
+            print("Could not write topology: {}".format(e))
+            # raise aiohttp.web.HTTPInternalServerError(text="Could not write topology: {}".format(e))
+
+    def load_topology(self):
+        """
+        Open a topology file, patch it for last GNS3 release and return it
+        """
+        path = self.path()
+        log.debug("Read topology %s", path)
+        try:
+            with open(path, encoding="utf-8") as f:
+                topo = json.load(f)
+        except (OSError, UnicodeDecodeError, ValueError) as e:
+            raise Exception("Could not load topology {}: {}".format(path, str(e)))
+        return topo
+
+    def open(self):
+        """
+        Load topology elements
+        """
+        self._status = "closed"
+        if self._status == "opened":
+            return
+
+        # self.reset()
+        self._loading = True
+        self._status = "opened"
+
+        # path = self._topology_file()
+        # if not os.path.exists(path):
+        #     self._loading = False
+        #     return
+        # try:
+        #     shutil.copy(path, path + ".backup")
+        # except OSError:
+        #     pass
+        try:
+            project_data = self.load_topology()
+
+            #load meta of project
+            keys_to_load = [
+                "auto_start",
+                "auto_close",
+                "auto_open",
+                "scene_height",
+                "scene_width",
+                "zoom",
+                "show_layers",
+                "snap_to_grid",
+                "show_grid",
+                "show_interface_labels"
+            ]
+
+            for key in keys_to_load:
+                val = project_data.get(key, None)
+                if val is not None:
+                    setattr(self, key, val)
+
+            topo = Topology.instance()
+            topo.setProject(self)
+
+            topology = project_data["topology"]
+            for compute in topology.get("computes", []):
+                self.controller.add_compute(**compute)
+            for node in topology.get("nodes", []):
+                topo.createNode(node)
+                # compute = self.controller.get_compute(node.pop("compute_id"))
+                # name = node.pop("name")
+                # node_id = node.pop("node_id", str(uuid.uuid4()))
+                # yield from self.add_node(compute, name, node_id, dump=False, **node)
+            for link_data in topology.get("links", []):
+                if 'link_id' not in link_data.keys():
+                    # skip the link
+                    continue
+                link = topo.createLink(link_data) # self.add_link(link_id=link_data["link_id"])
+                #if "filters" in link_data:
+                #    link.update_filters(link_data["filters"])
+                # for node_link in link_data["nodes"]:
+                #     node = self.get_node(node_link["node_id"])
+                #     port = node.get_port(node_link["adapter_number"], node_link["port_number"])
+                #     if port is None:
+                #         log.warning("Port {}/{} for {} not found".format(node_link["adapter_number"], node_link["port_number"], node.name))
+                #         continue
+                #     if port.link is not None:
+                #         log.warning("Port {}/{} is already connected to link ID {}".format(node_link["adapter_number"], node_link["port_number"], port.link.id))
+                #         continue
+                #     link.add_node(node, node_link["adapter_number"], node_link["port_number"], label=node_link.get("label"), dump=False)
+                # if len(link.nodes) != 2:
+                #     # a link should have 2 attached nodes, this can happen with corrupted projects
+                #     self.delete_link(link.id, force_delete=True)
+            # for drawing_data in topology.get("drawings", []):
+            #     self.add_drawing(dump=False, **drawing_data)
+
+            # self.dump()
+        # We catch all error to be able to rollback the .gns3 to the previous state
+        except Exception as e:
+            raise Exception("Could not load topology: {}".format(str(e)))
+            # try:
+            #     if os.path.exists(path + ".backup"):
+            #         shutil.copy(path + ".backup", path)
+            # except (PermissionError, OSError):
+            #     pass
+            self._status = "closed"
+            self._loading = False
+        # try:
+        #     os.remove(path + ".backup")
+        # except OSError:
+        #     pass
+
+        self._loading = False
+        # Should we start the nodes when project is open
