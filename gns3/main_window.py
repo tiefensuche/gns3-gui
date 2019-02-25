@@ -24,9 +24,9 @@ import os
 import time
 import logging
 
+
 from gns3.project import Project
 from .local_config import LocalConfig
-from .local_server import LocalServer
 from .modules import MODULES
 from .qt import QtGui, QtCore, QtWidgets, qslot
 from .controller import Controller
@@ -36,25 +36,23 @@ from .style import Style
 from .dialogs.about_dialog import AboutDialog
 from .dialogs.project_dialog import ProjectDialog
 from .dialogs.preferences_dialog import PreferencesDialog
-from .dialogs.snapshots_dialog import SnapshotsDialog
 from .dialogs.export_debug_dialog import ExportDebugDialog
-from .dialogs.doctor_dialog import DoctorDialog
+# from .dialogs.doctor_dialog import DoctorDialog
 from .dialogs.edit_project_dialog import EditProjectDialog
-from .dialogs.setup_wizard import SetupWizard
+# from .dialogs.setup_wizard import SetupWizard
 from .settings import GENERAL_SETTINGS
 from .items.node_item import NodeItem
 from .items.link_item import LinkItem
 from .items.shape_item import ShapeItem
 from .topology import Topology
-from .http_client import HTTPClient
-from .progress import Progress
-from .update_manager import UpdateManager
-from .utils.analytics import AnalyticsClient
+# from .http_client import HTTPClient
+# from .progress import Progress
+# from .update_manager import UpdateManager
 from .dialogs.appliance_wizard import ApplianceWizard
 from .dialogs.new_appliance_dialog import NewApplianceDialog
 from .dialogs.notif_dialog import NotifDialog, NotifDialogHandler
 from .status_bar import StatusBarHandler
-from .registry.appliance import ApplianceError
+# from .registry.appliance import ApplianceError
 from .appliance_manager import ApplianceManager
 
 log = logging.getLogger(__name__)
@@ -96,9 +94,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         topology.setMainWindow(self)
         topology.project_changed_signal.connect(self._projectChangedSlot)
         Controller.instance().setParent(self)
-        LocalServer.instance().setParent(self)
+        # LocalServer.instance().setParent(self)
 
-        HTTPClient.setProgressCallback(Progress.instance(self))
+        # HTTPClient.setProgressCallback(Progress.instance(self))
 
         self._first_file_load = True
         self._open_project_path = None
@@ -114,7 +112,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._local_config_timer = QtCore.QTimer(self)
         self._local_config_timer.timeout.connect(local_config.checkConfigChanged)
         self._local_config_timer.start(1000)  # milliseconds
-        self._analytics_client = AnalyticsClient()
         self._appliance_manager = ApplianceManager()
 
         # restore the geometry and state of the main window.
@@ -407,16 +404,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Slot called to open a project.
         """
-
-        if Controller.instance().isRemote():
-            # If the server is remote we use the new project windows with the project library
-            self._newProjectActionSlot()
-        else:
-            path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open project", Topology.instance().projectsDirPath(),
-                                                            "All files (*.*);;GNS3 Project (*.gns3);;GNS3 Portable Project (*.gns3project *.gns3p);;NET files (*.net)",
-                                                            "GNS3 Project (*.gns3)")
-            if path:
-                self.loadPath(path)
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open project", Topology.instance().projectsDirPath(),
+                                                        "All files (*.*);;GNS3 Project (*.gns3);;GNS3 Portable Project (*.gns3project *.gns3p);;NET files (*.net)",
+                                                        "GNS3 Project (*.gns3)")
+        if path:
+            self.loadPath(path)
 
     def openRecentFileSlot(self):
         """
@@ -478,14 +470,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self._appliance_wizard.show()
             self._appliance_wizard.exec_()
         elif path.endswith(".gns3"):
-            if Controller.instance().isRemote():
-                QtWidgets.QMessageBox.critical(self, "Open project", "Cannot open a .gns3 file on a remote server, please use a portable project (.gns3p) instead")
-                return
-            else:
-                project = Project()
-                project.setFilesDir(os.path.dirname(path))
-                project.setFilename(os.path.basename(path))
-                project.open()
+            project = Project()
+            project.setFilesDir(os.path.dirname(path))
+            project.setFilename(os.path.basename(path))
+            project.open()
         else:
             try:
                 extension = path.split('.')[1]
@@ -906,15 +894,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Slot to open the setup wizard.
         """
+        return
+    #     setup_wizard = SetupWizard(self)
+    #     setup_wizard.show()
+    #     res = setup_wizard.exec_()
+    #     # start and connect to the local server if needed
+    #     LocalServer.instance().localServerAutoStartIfRequire()
+    #     if res:
+    #         self._newApplianceActionSlot()
 
-        with Progress.instance().context(min_duration=0):
-            setup_wizard = SetupWizard(self)
-            setup_wizard.show()
-            res = setup_wizard.exec_()
-            # start and connect to the local server if needed
-            LocalServer.instance().localServerAutoStartIfRequire()
-            if res:
-                self._newApplianceActionSlot()
 
     def _aboutQtActionSlot(self):
         """
@@ -1034,13 +1022,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Slot to show the preferences dialog.
         """
 
-        with Progress.instance().context(min_duration=0):
-            dialog = PreferencesDialog(self)
-            dialog.restoreGeometry(QtCore.QByteArray().fromBase64(self._settings["preferences_dialog_geometry"].encode()))
-            dialog.show()
-            dialog.exec_()
-            self._settings["preferences_dialog_geometry"] = bytes(dialog.saveGeometry().toBase64()).decode()
-            self.setSettings(self._settings)
+        # with Progress.instance().context(min_duration=0):
+        dialog = PreferencesDialog(self)
+        dialog.restoreGeometry(QtCore.QByteArray().fromBase64(self._settings["preferences_dialog_geometry"].encode()))
+        dialog.show()
+        dialog.exec_()
+        self._settings["preferences_dialog_geometry"] = bytes(dialog.saveGeometry().toBase64()).decode()
+        self.setSettings(self._settings)
 
     def _editReadmeActionSlot(self):
         """
@@ -1081,12 +1069,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 event.ignore()
                 return
 
-        progress = Progress.instance()
-        progress.setAllowCancelQuery(True)
-        progress.setCancelButtonText("Force quit")
+        # progress = Progress.instance()
+        # progress.setAllowCancelQuery(True)
+        # progress.setCancelButtonText("Force quit")
 
         log.debug("Close the Main Window")
-        self._analytics_client.sendScreenView("Main Window", session_start=False)
+        # self._analytics_client.sendScreenView("Main Window", session_start=False)
 
         self._finish_application_closing(close_windows=False)
         event.accept()
@@ -1106,8 +1094,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._settings["state"] = bytes(self.saveState().toBase64()).decode()
         self.setSettings(self._settings)
 
-        server = LocalServer.instance()
-        server.stopLocalServer(wait=True)
+        # server = LocalServer.instance()
+        # server.stopLocalServer(wait=True)
 
         time_spent = "{:.0f}".format(time.time() - self._start_time)
         log.debug("Time spend in the software is {}".format(time_spent))
@@ -1174,20 +1162,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Controller.instance().connected_signal.connect(self._controllerConnectedSlot)
         Controller.instance().project_list_updated_signal.connect(self.updateRecentProjectActions)
 
-        self._analytics_client.sendScreenView("Main Window")
         self.uiGraphicsView.setEnabled(False)
 
         # show the setup wizard
-        if not self._settings["hide_setup_wizard"]:
-            self._setupWizardActionSlot()
-        else:
-            # start and connect to the local server if needed
-            LocalServer.instance().localServerAutoStartIfRequire()
-            if self._open_file_at_startup:
-                self.loadPath(self._open_file_at_startup)
-                self._open_file_at_startup = None
-            elif Topology.instance().project() is None:
-                self._newProjectActionSlot()
+        # if not self._settings["hide_setup_wizard"]:
+        #     self._setupWizardActionSlot()
+        # else:
+        #     # start and connect to the local server if needed
+        #     LocalServer.instance().localServerAutoStartIfRequire()
+        #     if self._open_file_at_startup:
+        #         self.loadPath(self._open_file_at_startup)
+        #         self._open_file_at_startup = None
+        #     elif Topology.instance().project() is None:
+        #         self._newProjectActionSlot()
 
         if self._settings["check_for_update"]:
             # automatic check for update every week (604800 seconds)
@@ -1262,18 +1249,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 action.setData((project_id, ))
             index += 1
 
-        if Controller.instance().isRemote():
-            for index in range(0, size):
-                self.recent_project_actions[index].setVisible(True)
-            for index in range(size + 1, self._maxrecent_files):
-                self.recent_project_actions[index].setVisible(False)
-
-            if size:
-                self.recent_project_actions_separator.setVisible(True)
-        else:
-            for action in self.recent_project_actions:
-                action.setVisible(False)
-            self.recent_project_actions_separator.setVisible(False)
+        for action in self.recent_project_actions:
+            action.setVisible(False)
+        self.recent_project_actions_separator.setVisible(False)
 
     def updateRecentFileSettings(self, path):
         """
@@ -1320,16 +1298,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             except UnicodeEncodeError:
                 pass
 
-        if not Controller.instance().isRemote():
-            for index in range(size + 1, self._maxrecent_files):
-                self.recent_file_actions[index].setVisible(False)
+        for index in range(size + 1, self._maxrecent_files):
+            self.recent_file_actions[index].setVisible(False)
 
-            if size:
-                self.recent_file_actions_separator.setVisible(True)
-        else:
-            for index in range(0, self._maxrecent_files):
-                self.recent_file_actions[index].setVisible(False)
-            self.recent_file_actions_separator.setVisible(False)
+        if size:
+            self.recent_file_actions_separator.setVisible(True)
 
     def _controllerConnectedSlot(self):
         self.updateRecentFileActions()

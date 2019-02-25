@@ -58,13 +58,6 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
             self.uiOpenProjectGroupBox.hide()
             self.uiProjectTabWidget.removeTab(1)
 
-        # If the controller is remote we hide option for local file system
-        if Controller.instance().isRemote():
-            self.uiLocationLabel.setVisible(False)
-            self.uiLocationLineEdit.setVisible(False)
-            self.uiLocationBrowserToolButton.setVisible(False)
-            self.uiOpenProjectPushButton.setVisible(False)
-
         self.uiProjectsTreeWidget.itemDoubleClicked.connect(self._projectsTreeWidgetDoubleClickedSlot)
         self.uiDeleteProjectButton.clicked.connect(self._deleteProjectSlot)
         self.uiDuplicateProjectPushButton.clicked.connect(self._duplicateProjectSlot)
@@ -250,17 +243,14 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
 
     def _newProject(self):
         self._project_settings["project_name"] = self.uiNameLineEdit.text().strip()
-        if Controller.instance().isRemote():
-            self._project_settings.pop("project_path", None)
-            self._project_settings.pop("project_files_dir", None)
-        else:
-            project_location = self.uiLocationLineEdit.text().strip()
-            if not project_location:
-                QtWidgets.QMessageBox.critical(self, "New project", "Project location is empty")
-                return False
+        project_location = self.uiLocationLineEdit.text().strip()
+        if not project_location:
+            QtWidgets.QMessageBox.critical(self, "New project", "Project location is empty")
+            return False
 
-            self._project_settings["project_path"] = os.path.join(project_location, self._project_settings["project_name"] + ".gns3")
-            self._project_settings["project_files_dir"] = project_location
+        self._project_settings["project_path"] = os.path.join(project_location,
+                                                              self._project_settings["project_name"] + ".gns3")
+        self._project_settings["project_files_dir"] = project_location
 
         if len(self._project_settings["project_name"]) == 0:
             QtWidgets.QMessageBox.critical(self, "New project", "Project name is empty")
@@ -278,12 +268,12 @@ class ProjectDialog(QtWidgets.QDialog, Ui_ProjectDialog):
 
                 reply = QtWidgets.QMessageBox.warning(self,
                                                       "New project",
-                                                      "Project {} already exists, overwrite it?".format(existing_project.name),
+                                                      "Project {} already exists, overwrite it?".format(existing_project['name']),
                                                       QtWidgets.QMessageBox.Yes,
                                                       QtWidgets.QMessageBox.No)
 
                 if reply == QtWidgets.QMessageBox.Yes:
-                    Controller.instance().deleteProject(existing_project.id, self._overwriteProjectCallback)
+                    Controller.instance().deleteProject(existing_project['id'], self._overwriteProjectCallback)
                     # self.done(True)
                 # In all cases we cancel the new project and if project success to delete
                 # we will call done again

@@ -24,7 +24,7 @@ from .node import Node
 from .topology import Topology
 from .items.node_item import NodeItem
 from .items.link_item import LinkItem
-from .packet_capture import PacketCapture
+# from .packet_capture import PacketCapture
 from .utils import natural_sort_key
 
 import logging
@@ -96,10 +96,7 @@ class TopologyNodeItem(QtWidgets.QTreeWidgetItem):
             # refresh all the other item if the node name has changed
             self._parent.refreshAllLinks(source_child=self)
         self.setText(0, self._node.name())
-        if self._node.consoleType() and self._node.console():
-            self.setText(1, "{} {}:{}".format(self._node.consoleType(), self._node.consoleHost(), self._node.console()))
-        else:
-            self.setText(1, "not supported")
+        self.setText(1, "not supported")
         self.refreshLinks()
         self._parent.invisibleRootItem().sortChildren(0, QtCore.Qt.AscendingOrder)
 

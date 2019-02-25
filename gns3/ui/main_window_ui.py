@@ -199,11 +199,11 @@ class Ui_MainWindow(object):
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setSpacing(0)
         self.gridLayout.setObjectName("gridLayout")
-        self.uiComputeSummaryTreeWidget = ComputeSummaryView(self.dockWidgetContents)
-        self.uiComputeSummaryTreeWidget.setObjectName("uiComputeSummaryTreeWidget")
-        self.uiComputeSummaryTreeWidget.headerItem().setText(0, "1")
-        self.uiComputeSummaryTreeWidget.header().setVisible(False)
-        self.gridLayout.addWidget(self.uiComputeSummaryTreeWidget, 0, 0, 1, 1)
+        # self.uiComputeSummaryTreeWidget = ComputeSummaryView(self.dockWidgetContents)
+        # self.uiComputeSummaryTreeWidget.setObjectName("uiComputeSummaryTreeWidget")
+        # self.uiComputeSummaryTreeWidget.headerItem().setText(0, "1")
+        # self.uiComputeSummaryTreeWidget.header().setVisible(False)
+        # self.gridLayout.addWidget(self.uiComputeSummaryTreeWidget, 0, 0, 1, 1)
         self.uiComputeSummaryDockWidget.setWidget(self.dockWidgetContents)
         MainWindow.addDockWidget(QtCore.Qt.DockWidgetArea(2), self.uiComputeSummaryDockWidget)
         self.uiAboutAction = QtWidgets.QAction(MainWindow)
@@ -707,7 +707,7 @@ class Ui_MainWindow(object):
         self.uiWebInterfaceAction.setText(_translate("MainWindow", "Web interface"))
         self.uiDrawLineAction.setText(_translate("MainWindow", "Drawn line"))
 
-from ..compute_summary_view import ComputeSummaryView
+# from ..compute_summary_view import ComputeSummaryView
 from ..console_view import ConsoleView
 from ..graphics_view import GraphicsView
 from ..nodes_dock_widget import NodesDockWidget

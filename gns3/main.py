@@ -55,7 +55,7 @@ except ImportError:
 from gns3.main_window import MainWindow
 
 from gns3.logger import init_logger
-from gns3.crash_report import CrashReport
+# from gns3.crash_report import CrashReport
 from gns3.local_config import LocalConfig
 from gns3.application import Application
 from gns3.utils import parse_version
@@ -178,8 +178,6 @@ def main():
 
         if exception is MemoryError:
             print("YOUR SYSTEM IS OUT OF MEMORY!")
-        else:
-            CrashReport.instance().captureException(exception, value, tb)
 
     # catch exceptions to write them in a file
     sys.excepthook = exceptionHook

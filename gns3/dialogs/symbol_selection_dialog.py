@@ -25,7 +25,6 @@ import pathlib
 from ..qt import QtCore, QtGui, QtWidgets, qpartial
 from ..qt.qimage_svg_renderer import QImageSvgRenderer
 from ..ui.symbol_selection_dialog_ui import Ui_SymbolSelectionDialog
-from ..local_server import LocalServer
 from ..controller import Controller
 from ..symbol import Symbol
 

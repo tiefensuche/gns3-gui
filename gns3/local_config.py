@@ -57,7 +57,6 @@ class LocalConfig(QtCore.QObject):
         self._resetLoadConfig()
         self._monitoring_changes = False
         Controller.instance().connected_signal.connect(self.refreshConfigFromController)
-        self.save_on_controller_signal.connect(self._saveOnController)
 
     def _monitorChanges(self):
         """
@@ -310,24 +309,6 @@ class LocalConfig(QtCore.QObject):
         except (ValueError, OSError) as e:
             log.error("Could not write the config file {}: {}".format(self._config_file, e))
         self.save_on_controller_signal.emit()
-
-    @qslot
-    def _saveOnController(self, *args):
-        """
-        Save some settings on controller for the transition from
-        GUI to a central controller. Will be removed later
-        """
-        if Controller.instance().connected() and self._settings_retrieved_from_controller:
-            # We save only non user specific sections
-            section_to_save_on_controller = ["Builtin", "Docker", "IOU", "Qemu", "VMware", "VPCS", "VirtualBox", "GraphicsView", "Dynamips"]
-            controller_settings = {}
-            for key, val in self._settings.items():
-                if key in section_to_save_on_controller:
-                    controller_settings[key] = val
-                # We want only the VM settings on the server
-                elif key == "Server":
-                    controller_settings["Server"]["vm"] = self._settings["Server"]["vm"]
-            Controller.instance().post("/settings", None, body=controller_settings)
 
     def checkConfigChanged(self):
 

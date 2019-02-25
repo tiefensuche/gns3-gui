@@ -23,11 +23,12 @@ import os
 import shutil
 import json
 
+from gns3.local_server_config import LocalServerConfig
+
 from gns3.qt import QtGui, QtCore, QtWidgets
 from gns3.local_config import LocalConfig
 from ..ui.general_preferences_page_ui import Ui_GeneralPreferencesPageWidget
-from gns3.local_server import LocalServer
-from ..settings import GRAPHICS_VIEW_SETTINGS, GENERAL_SETTINGS, STYLES
+from ..settings import GRAPHICS_VIEW_SETTINGS, GENERAL_SETTINGS, STYLES, LOCAL_SERVER_SETTINGS
 from ..dialogs.console_command_dialog import ConsoleCommandDialog
 
 
@@ -91,7 +92,7 @@ class GeneralPreferencesPage(QtWidgets.QWidget, Ui_GeneralPreferencesPageWidget)
         Slot to select the projects directory path.
         """
 
-        local_server = LocalServer.instance().localServerSettings()
+        local_server = LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)
         directory = local_server["projects_path"]
         path = QtWidgets.QFileDialog.getExistingDirectory(self, "My projects directory", directory, QtWidgets.QFileDialog.ShowDirsOnly)
         if path:
@@ -103,7 +104,7 @@ class GeneralPreferencesPage(QtWidgets.QWidget, Ui_GeneralPreferencesPageWidget)
         Slot to select the symbols directory path.
         """
 
-        local_server = LocalServer.instance().localServerSettings()
+        local_server = LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)
         directory = local_server["symbols_path"]
         path = QtWidgets.QFileDialog.getExistingDirectory(self, "My symbols directory", directory, QtWidgets.QFileDialog.ShowDirsOnly)
         if path:
@@ -115,7 +116,7 @@ class GeneralPreferencesPage(QtWidgets.QWidget, Ui_GeneralPreferencesPageWidget)
         Slot to select the images directory path.
         """
 
-        local_server = LocalServer.instance().localServerSettings()
+        local_server = LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)
         directory = local_server["images_path"]
         path = QtWidgets.QFileDialog.getExistingDirectory(self, "My images directory", directory, QtWidgets.QFileDialog.ShowDirsOnly)
         if path:
@@ -127,7 +128,7 @@ class GeneralPreferencesPage(QtWidgets.QWidget, Ui_GeneralPreferencesPageWidget)
         Slot to select the configs directory path.
         """
 
-        local_server = LocalServer.instance().localServerSettings()
+        local_server = LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)
         directory = local_server["configs_path"]
         path = QtWidgets.QFileDialog.getExistingDirectory(self, "My configs directory", directory, QtWidgets.QFileDialog.ShowDirsOnly)
         if path:
@@ -139,7 +140,7 @@ class GeneralPreferencesPage(QtWidgets.QWidget, Ui_GeneralPreferencesPageWidget)
         Slot to select the appliances directory path.
         """
 
-        local_server = LocalServer.instance().localServerSettings()
+        local_server = LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)
         directory = local_server["appliances_path"]
         path = QtWidgets.QFileDialog.getExistingDirectory(self, "My custom appliances directory", directory, QtWidgets.QFileDialog.ShowDirsOnly)
         if path:
@@ -273,7 +274,7 @@ class GeneralPreferencesPage(QtWidgets.QWidget, Ui_GeneralPreferencesPageWidget)
         :param settings: General settings
         """
 
-        local_server = LocalServer.instance().localServerSettings()
+        local_server = LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)
         self.uiProjectsPathLineEdit.setText(local_server["projects_path"])
         self.uiSymbolsPathLineEdit.setText(local_server["symbols_path"])
         self.uiImagesPathLineEdit.setText(local_server["images_path"])
@@ -357,7 +358,7 @@ class GeneralPreferencesPage(QtWidgets.QWidget, Ui_GeneralPreferencesPageWidget)
                                      "appliances_path": self.uiAppliancesPathLineEdit.text(),
                                      "report_errors": self.uiCrashReportCheckBox.isChecked(),
                                      "additional_images_paths": ":".join(additional_images_paths)}
-        LocalServer.instance().updateLocalServerSettings(new_local_server_settings)
+        # LocalServer.instance().updateLocalServerSettings(new_local_server_settings)
 
         new_general_settings = {
             "style": self.uiStyleComboBox.currentText(),

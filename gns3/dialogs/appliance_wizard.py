@@ -21,18 +21,16 @@ import shutil
 
 from ..qt import QtWidgets, QtCore, QtGui, qpartial, qslot
 from ..ui.appliance_wizard_ui import Ui_ApplianceWizard
-from ..modules import Qemu
-from ..registry.appliance import Appliance, ApplianceError
-from ..registry.registry import Registry
-from ..registry.config import Config, ConfigException
-from ..registry.image import Image
+# from ..modules import Qemu
+# from ..registry.appliance import Appliance, ApplianceError
+# from ..registry.registry import Registry
+# from ..registry.config import Config, ConfigException
+# from ..registry.image import Image
 from ..utils import human_filesize
-from ..utils.wait_for_lambda_worker import WaitForLambdaWorker
-from ..utils.progress_dialog import ProgressDialog
-from ..compute_manager import ComputeManager
+# from ..compute_manager import ComputeManager
 from ..controller import Controller
 from ..local_config import LocalConfig
-from ..image_upload_manager import ImageUploadManager
+# from ..image_upload_manager import ImageUploadManager
 
 import logging
 log = logging.getLogger(__name__)

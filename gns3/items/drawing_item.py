@@ -69,7 +69,8 @@ class DrawingItem:
 
     def create(self):
         if self._project:
-            self._project.post("/drawings", self._createDrawingCallback, body=self.__json__())
+            self._createDrawingCallback(self.__json__())
+            # self._project.post("/drawings", self._createDrawingCallback, body=self.__json__())
 
     def _createDrawingCallback(self, result, error=False, **kwargs):
         """
@@ -88,7 +89,8 @@ class DrawingItem:
 
     def updateDrawing(self):
         if self._id:
-            self._project.put("/drawings/" + self._id, self.updateDrawingCallback, body=self.__json__(), showProgress=False)
+            self.updateDrawingCallback(self.__json__())
+            # self._project.put("/drawings/" + self._id, self.updateDrawingCallback, body=self.__json__(), showProgress=False)
 
     @qslot
     def updateDrawingCallback(self, result, error=False, **kwargs):
@@ -143,19 +145,14 @@ class DrawingItem:
             QtWidgets.QGraphicsItem.keyPressEvent(self, event)
 
     def __json__(self):
-        data = {
+        return {
             "drawing_id": self._id,
             "x": int(self.pos().x()),
             "y": int(self.pos().y()),
             "z": int(self.zValue()),
-            "rotation": int(self.rotation())
+            "rotation": int(self.rotation()),
+            "svg": self.toSvg()
         }
-        svg = self.toSvg()
-        hash_svg = binascii.crc32(svg.encode())
-        if hash_svg != self._hash_svg:
-            data["svg"] = svg
-            self._hash_svg = hash_svg
-        return data
 
     def setZValue(self, value):
         """

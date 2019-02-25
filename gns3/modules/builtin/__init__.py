@@ -334,11 +334,8 @@ class Builtin(Module):
         """
 
         from .pages.builtin_preferences_page import BuiltinPreferencesPage
-        from .pages.cloud_preferences_page import CloudPreferencesPage
-        from .pages.ethernet_hub_preferences_page import EthernetHubPreferencesPage
-        from .pages.ethernet_switch_preferences_page import EthernetSwitchPreferencesPage
 
-        return [BuiltinPreferencesPage, EthernetHubPreferencesPage, EthernetSwitchPreferencesPage, CloudPreferencesPage]
+        return [BuiltinPreferencesPage]
 
     @staticmethod
     def instance():

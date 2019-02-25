@@ -23,7 +23,7 @@ Link items are graphical representation of a link on the QGraphicsScene
 import math
 from ..qt import QtCore, QtGui, QtWidgets, QtSvg, qslot
 
-from ..packet_capture import PacketCapture
+# from ..packet_capture import PacketCapture
 from ..dialogs.filter_dialog import FilterDialog
 
 

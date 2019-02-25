@@ -22,7 +22,6 @@ from gns3.utils.get_resource import get_resource
 
 from .qt import QtCore
 from .controller import Controller
-from .utils.server_select import server_select
 
 import logging
 log = logging.getLogger(__name__)
@@ -101,7 +100,8 @@ class Appliance:
             "symbol": self._data.get("symbol", ":/symbols/computer.svg"),
             "compute_id": self.compute_id,
             "builtin": self._builtin,
-            "platform": self._data.get("platform", None)
+            "platform": self._data.get("platform", None),
+            "adapters": self._data.get("adapters", 1)
         }
 
 
@@ -140,6 +140,7 @@ class ApplianceManager(QtCore.QObject):
             vms.append(vm)
         for vm in self._settings.get("Docker", {}).get("containers", []):
             vm["node_type"] = "docker"
+            print(vm)
             vms.append(vm)
         for vm in self._settings.get("Builtin", {}).get("cloud_nodes", []):
             vm["node_type"] = "cloud"
@@ -236,7 +237,19 @@ class ApplianceManager(QtCore.QObject):
     def createNodeFromApplianceId(self, project, appliance_id, x, y):
         from gns3.topology import Topology
         app = self._appliances[appliance_id]
-        Topology.instance().createNode(node_data={"node_type": app["node_type"], "x": x, "y": y, "symbol": app["symbol"]})
+        print(app)
+        ports = []
+        for i in range(app['adapters']):
+            ports.append({"link_type": "ethernet",
+                          "name": "eth"+str(i),
+                          "short_name": "eth"+str(i),
+                          "adapter_number": i,
+                          "port_number": 0,
+                          "data_link_types": ""})
+        # FIXME ports
+        Topology.instance().createNode(node_data={"node_type": app["node_type"], "name": app["name"],
+                                                  "ports": ports,
+                                                  "x": x, "y": y, "symbol": app["symbol"]})
         return True
 
         for appliance in self._appliances:

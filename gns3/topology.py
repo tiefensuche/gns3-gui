@@ -22,18 +22,16 @@ Contains this entire topology: nodes and links.
 import os
 import xml.etree.ElementTree as ET
 
+from gns3.local_server_config import LocalServerConfig
 
-from .local_server import LocalServer
+from gns3.settings import LOCAL_SERVER_SETTINGS
 from .qt import QtCore, QtWidgets
 
-from .utils.progress_dialog import ProgressDialog
-from .utils.export_project_worker import ExportProjectWorker
-from .utils.import_project_worker import ImportProjectWorker
 from .dialogs.file_editor_dialog import FileEditorDialog
 
 from .modules import MODULES
 from .modules.module_error import ModuleError
-from .compute_manager import ComputeManager
+# from .compute_manager import ComputeManager
 from .controller import Controller
 
 import logging
@@ -98,7 +96,7 @@ class Topology(QtCore.QObject):
         :returns: path to the default projects directory
         """
 
-        return LocalServer.instance().localServerSettings()["projects_path"]
+        return LocalServerConfig.instance().loadSettings("Server", LOCAL_SERVER_SETTINGS)["projects_path"]
 
     def project(self):
         """
@@ -116,10 +114,10 @@ class Topology(QtCore.QObject):
         :param project: Project instance
         """
 
-        if self._project:
-            # Assert to detect when we create a new project object for the same project
-            assert project is None or (project != self._project and project.id != self._project.id)
-            self._project.stopListenNotifications()
+        # if self._project:
+        #     # Assert to detect when we create a new project object for the same project
+        #     assert project is None or (project != self._project and project.id != self._project.id)
+        #     self._project.stopListenNotifications()
 
         self._main_window.uiGraphicsView.reset()
         self._project = project
@@ -187,7 +185,6 @@ class Topology(QtCore.QObject):
             self._main_window.uiStatusBar.showMessage("Project loaded", 2000)
         else:
             self.setProject(project)
-            project.create()
             self._main_window.uiStatusBar.showMessage("Project created", 2000)
         return project
 
@@ -220,58 +217,6 @@ class Topology(QtCore.QObject):
             self._project.project_creation_error_signal.disconnect(self._projectCreationErrorSlot)
             self.setProject(None)
             QtWidgets.QMessageBox.critical(self._main_window, "New project", message)
-
-    def exportProject(self):
-        include_image_question = """Would you like to include any base image?
-The project will not require additional images to run on another host, however the resulting file will be much bigger.
-It is your responsability to check if you have the right to distribute the image(s) as part of the project.
-        """
-
-        reply = QtWidgets.QMessageBox.question(self._main_window, "Export project", include_image_question,
-                                               QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                                               QtWidgets.QMessageBox.No)
-        include_images = int(reply == QtWidgets.QMessageBox.Yes)
-
-        directory = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.DocumentsLocation)
-        if len(directory) == 0:
-            directory = self.projectsDirPath()
-
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self._main_window, "Export portable project", directory,
-                                                        "GNS3 Portable Project (*.gns3project *.gns3p)",
-                                                        "GNS3 Portable Project (*.gns3project *.gns3p)")
-        if path is None or len(path) == 0:
-            return
-
-        if not path.endswith(".gns3project") and not path.endswith(".gns3p"):
-            path += ".gns3project"
-
-        try:
-            open(path, 'wb+').close()
-        except OSError as e:
-            QtWidgets.QMessageBox.critical(self._main_window, "Export project", "Could not write {}: {}".format(path, e))
-            return
-
-        self.editReadme()
-
-        export_worker = ExportProjectWorker(self._project, path, include_images)
-        progress_dialog = ProgressDialog(export_worker, "Exporting project", "Exporting portable project files...", "Cancel", parent=self._main_window, create_thread=False)
-        progress_dialog.show()
-        progress_dialog.exec_()
-
-    def importProject(self, project_file):
-        from .dialogs.project_dialog import ProjectDialog
-        dialog = ProjectDialog(self._main_window, default_project_name=os.path.basename(project_file).split(".")[0], show_open_options=False)
-        dialog.show()
-        if not dialog.exec_():
-            return
-
-        import_worker = ImportProjectWorker(project_file,
-                                            name=dialog.getProjectSettings()["project_name"],
-                                            path=dialog.getProjectSettings().get("project_files_dir"))
-        import_worker.imported.connect(self._projectImportedSlot)
-        progress_dialog = ProgressDialog(import_worker, "Importing project", "Importing portable project files...", "Cancel", parent=self._main_window, create_thread=False)
-        progress_dialog.show()
-        progress_dialog.exec_()
 
     def saveProjectAs(self):
         project = self._project
@@ -518,7 +463,6 @@ It is your responsability to check if you have the right to distribute the image
         node = node_module.instantiateNode(node_class, None, self._project)
         node.createNodeCallback(node_data)
         # node._updatePorts(node._settings['ports'])
-
 
         self._main_window.uiGraphicsView.createNodeItem(node, node_data["symbol"], node_data["x"], node_data["y"])
 

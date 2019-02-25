@@ -24,8 +24,9 @@ import copy
 from gns3.qt import QtCore, QtGui, QtWidgets, qpartial
 from gns3.main_window import MainWindow
 from gns3.dialogs.configuration_dialog import ConfigurationDialog
-from gns3.compute_manager import ComputeManager
+# from gns3.compute_manager import ComputeManager
 from gns3.controller import Controller
+from gns3.symbols import Symbols
 
 from .. import Docker
 from ..settings import DOCKER_CONTAINER_SETTINGS
@@ -115,7 +116,9 @@ class DockerVMPreferencesPage(QtWidgets.QWidget, Ui_DockerVMPreferencesPageWidge
 
             item = QtWidgets.QTreeWidgetItem(self.uiDockerVMsTreeWidget)
             item.setText(0, self._docker_containers[key]["name"])
-            Controller.instance().getSymbolIcon(self._docker_containers[key]["symbol"], qpartial(self._setItemIcon, item))
+            symbols = Symbols()
+            path = symbols.get_path(self._docker_containers[key]["symbol"])
+            item.setIcon(0, QtGui.QIcon(path))
             item.setData(0, QtCore.Qt.UserRole, key)
             self._items.append(item)
             self.uiDockerVMsTreeWidget.setCurrentItem(item)
@@ -133,7 +136,9 @@ class DockerVMPreferencesPage(QtWidgets.QWidget, Ui_DockerVMPreferencesPageWidge
             dialog.show()
             if dialog.exec_():
                 # update the icon
-                Controller.instance().getSymbolIcon(docker_image["symbol"], qpartial(self._setItemIcon, item))
+                symbols = Symbols()
+                path = symbols.get_path(docker_image["symbol"])
+                item.setIcon(0, QtGui.QIcon(path))
                 if docker_image["name"] != item.text(0):
                     new_key = "{server}:{name}".format(server=docker_image["server"], name=docker_image["name"])
                     if new_key in self._docker_containers:
@@ -171,7 +176,9 @@ class DockerVMPreferencesPage(QtWidgets.QWidget, Ui_DockerVMPreferencesPageWidge
             item = QtWidgets.QTreeWidgetItem(self.uiDockerVMsTreeWidget)
             item.setText(0, docker_image["name"])
 
-            Controller.instance().getSymbolIcon(docker_image["symbol"], qpartial(self._setItemIcon, item))
+            symbols = Symbols()
+            path = symbols.get_path(docker_image[key]["symbol"])
+            item.setIcon(0, QtGui.QIcon(path))
 
             item.setData(0, QtCore.Qt.UserRole, key)
             self._items.append(item)

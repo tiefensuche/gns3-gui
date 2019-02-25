@@ -42,9 +42,8 @@ from .dialogs.idlepc_dialog import IdlePCDialog
 from .dialogs.console_command_dialog import ConsoleCommandDialog
 from .dialogs.file_editor_dialog import FileEditorDialog
 from .local_config import LocalConfig
-from .progress import Progress
-from .utils.server_select import server_select
-from .compute_manager import ComputeManager
+# from .progress import Progress
+# from .compute_manager import ComputeManager
 
 # link items
 from .items.link_item import LinkItem
@@ -618,11 +617,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
             for item in self.scene().selectedItems():
                 if isinstance(item, NodeItem) and item.node().initialized() and hasattr(item.node(), "configPage"):
                     items.append(item)
-        with Progress.instance().context(min_duration=0):
-            node_properties = NodePropertiesDialog(items, self._main_window)
-            node_properties.setModal(True)
-            node_properties.show()
-            node_properties.exec_()
+        node_properties = NodePropertiesDialog(items, self._main_window)
+        node_properties.setModal(True)
+        node_properties.show()
+        node_properties.exec_()
 
     def dragMoveEvent(self, event):
         """
@@ -790,29 +788,29 @@ class GraphicsView(QtWidgets.QGraphicsView):
             auto_idlepc_action.triggered.connect(self.autoIdlepcActionSlot)
             menu.addAction(auto_idlepc_action)
 
-        if True in list(map(lambda item: isinstance(item, NodeItem) and not item.node().isAlwaysOn(), items)):
-            start_action = QtWidgets.QAction("Start", menu)
-            start_action.setIcon(QtGui.QIcon(':/icons/start.svg'))
-            start_action.triggered.connect(self.startActionSlot)
-            menu.addAction(start_action)
+        # if True in list(map(lambda item: isinstance(item, NodeItem) and not item.node().isAlwaysOn(), items)):
+        #     start_action = QtWidgets.QAction("Start", menu)
+        #     start_action.setIcon(QtGui.QIcon(':/icons/start.svg'))
+        #     start_action.triggered.connect(self.startActionSlot)
+        #     menu.addAction(start_action)
 
-        if True in list(map(lambda item: isinstance(item, NodeItem) and not item.node().isAlwaysOn(), items)):
-            suspend_action = QtWidgets.QAction("Suspend", menu)
-            suspend_action.setIcon(QtGui.QIcon(':/icons/pause.svg'))
-            suspend_action.triggered.connect(self.suspendActionSlot)
-            menu.addAction(suspend_action)
+        # if True in list(map(lambda item: isinstance(item, NodeItem) and not item.node().isAlwaysOn(), items)):
+        #     suspend_action = QtWidgets.QAction("Suspend", menu)
+        #     suspend_action.setIcon(QtGui.QIcon(':/icons/pause.svg'))
+        #     suspend_action.triggered.connect(self.suspendActionSlot)
+        #     menu.addAction(suspend_action)
 
-        if True in list(map(lambda item: isinstance(item, NodeItem) and not item.node().isAlwaysOn(), items)):
-            stop_action = QtWidgets.QAction("Stop", menu)
-            stop_action.setIcon(QtGui.QIcon(':/icons/stop.svg'))
-            stop_action.triggered.connect(self.stopActionSlot)
-            menu.addAction(stop_action)
+        # if True in list(map(lambda item: isinstance(item, NodeItem) and not item.node().isAlwaysOn(), items)):
+        #     stop_action = QtWidgets.QAction("Stop", menu)
+        #     stop_action.setIcon(QtGui.QIcon(':/icons/stop.svg'))
+        #     stop_action.triggered.connect(self.stopActionSlot)
+        #     menu.addAction(stop_action)
 
-        if True in list(map(lambda item: isinstance(item, NodeItem) and not item.node().isAlwaysOn(), items)):
-            reload_action = QtWidgets.QAction("Reload", menu)
-            reload_action.setIcon(QtGui.QIcon(':/icons/reload.svg'))
-            reload_action.triggered.connect(self.reloadActionSlot)
-            menu.addAction(reload_action)
+        # if True in list(map(lambda item: isinstance(item, NodeItem) and not item.node().isAlwaysOn(), items)):
+        #     reload_action = QtWidgets.QAction("Reload", menu)
+        #     reload_action.setIcon(QtGui.QIcon(':/icons/reload.svg'))
+        #     reload_action.triggered.connect(self.reloadActionSlot)
+        #     menu.addAction(reload_action)
 
         if True in list(map(lambda item: isinstance(item, NoteItem), items)):
             text_edit_action = QtWidgets.QAction("Text edit", menu)

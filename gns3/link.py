@@ -92,41 +92,16 @@ class Link(QtCore.QObject):
         self._source_node.addLink(self)
         self._destination_node.addLink(self)
 
-        body = self._prepareParams()
         if self._link_id:
-            link_data["link_id"] = self._link_id
-            self._linkCreatedCallback(link_data)
-        else:
             self._link_id = str(uuid.uuid4())
-            self._creator = True
-            Controller.instance().post("/projects/{project_id}/links".format(project_id=source_node.project().id()), self._linkCreatedCallback, body=body)
+
+        link_data["link_id"] = self._link_id
+        self._linkCreatedCallback(link_data)
 
     def _parseResponse(self, result):
-        self._capturing = result.get("capturing", False)
-
-        # If the controller is remote the capture path should be rewrite to something local
-        if self._capturing:
-            if Controller.instance().isRemote():
-                if self._capture_file_path is None and result.get("capture_file_path", None) is not None:
-                    self._capture_file = QtCore.QTemporaryFile()
-                    self._capture_file.open(QtCore.QFile.WriteOnly)
-                    self._capture_file.setAutoRemove(True)
-                    self._capture_file_path = self._capture_file.fileName()
-                    Controller.instance().get(
-                        "/projects/{project_id}/links/{link_id}/pcap".format(
-                            project_id=self.project().id(),
-                            link_id=self._link_id),
-                        None,
-                        showProgress=False,
-                        downloadProgressCallback=self._downloadPcapProgress,
-                        ignoreErrors=True,  # If something is wrong avoid disconnect us from server
-                        timeout=None)
-            else:
-                self._capture_file_path = result["capture_file_path"]
-
         if "nodes" in result:
             self._nodes = result["nodes"]
-            self._updateLabels()
+            # self._updateLabels()
         if "filters" in result:
             self._filters = result["filters"]
         if "suspend" in result:
@@ -151,23 +126,12 @@ class Link(QtCore.QObject):
             self._source_label = label
         else:
             self._destination_label = label
-        label.item_unselected_signal.connect(self.update)
-        if self.creator():
-            self.update()
-        else:
-            self._updateLabels()
-
-    def update(self):
-        if not self._link_id:
-            return
-        body = self._prepareParams()
-        Controller.instance().put("/projects/{project_id}/links/{link_id}".format(project_id=self._source_node.project().id(), link_id=self._link_id), self.updateLinkCallback, body=body)
-
-    def listAvailableFilters(self, callback):
-        """
-        Get the list of available filters
-        """
-        Controller.instance().get("/projects/{project_id}/links/{link_id}/available_filters".format(project_id=self._source_node.project().id(), link_id=self._link_id), callback)
+        # FIXME
+        # label.item_unselected_signal.connect(self.update)
+        # if self.creator():
+        #     self.update()
+        # else:
+        #     self._updateLabels()
 
     def updateLinkCallback(self, result, error=False, *args, **kwargs):
         if error:
@@ -282,17 +246,6 @@ class Link(QtCore.QObject):
 
         return description
 
-    def capture_file_name(self):
-        """
-        :returns: File name for a capture on this link
-        """
-        capture_file_name = "{}_{}_to_{}_{}".format(
-            self._source_node.name(),
-            self._source_port.name(),
-            self._destination_node.name(),
-            self._destination_port.name())
-        return re.sub("[^0-9A-Za-z_-]", "", capture_file_name)
-
     def deleteLink(self, skip_controller=False):
         """
         Deletes this link.
@@ -302,12 +255,7 @@ class Link(QtCore.QObject):
                                                              self._source_port.name(),
                                                              self._destination_node.name(),
                                                              self._destination_port.name()))
-
-        if skip_controller:
-            self._linkDeletedCallback({})
-        else:
-            Controller.instance().delete("/projects/{project_id}/links/{link_id}".format(project_id=self.project().id(),
-                                                                                         link_id=self._link_id), self._linkDeletedCallback)
+        self._linkDeletedCallback({})
 
     def _linkDeletedCallback(self, result, error=False, **kwargs):
         """
@@ -326,68 +274,6 @@ class Link(QtCore.QObject):
 
         # let the GUI know about this link has been deleted
         self.delete_link_signal.emit(self._id)
-
-    def startCapture(self, data_link_type, capture_file_name):
-        data = {
-            "capture_file_name": capture_file_name,
-            "data_link_type": data_link_type
-        }
-        Controller.instance().post(
-            "/projects/{project_id}/links/{link_id}/start_capture".format(
-                project_id=self.project().id(),
-                link_id=self._link_id),
-            self._startCaptureCallback,
-            body=data)
-
-    def _startCaptureCallback(self, result, error=False, **kwargs):
-        if error:
-            log.error("Error while starting capture on link: {}".format(result["message"]))
-            return
-        self._parseResponse(result)
-
-    def _downloadPcapProgress(self, content, server=None, context={}, **kwargs):
-        """
-        Called for each part of the file of the PCAP
-        """
-        if not self._capture_file_path:
-            return
-        self._capture_file.write(content)
-        self._capture_file.flush()
-
-    def stopCapture(self):
-        if Controller.instance().isRemote():
-            if self._capture_file:
-                self._capture_file.close()
-                self._capture_file = None
-            if self._capture_file_path and os.path.exists(self._capture_file_path):
-                try:
-                    os.remove(self._capture_file_path)
-                except OSError as e:
-                    log.error("Can't remove file {}: {}".format(self._capture_file_path, e))
-        self._capture_file_path = None
-        Controller.instance().post(
-            "/projects/{project_id}/links/{link_id}/stop_capture".format(
-                project_id=self.project().id(),
-                link_id=self._link_id),
-            self._stopCaptureCallback)
-
-    def _stopCaptureCallback(self, result, error=False, **kwargs):
-        if error:
-            log.error("Error while stopping capture on link: {}".format(result["message"]))
-            return
-        self._parseResponse(result)
-
-    def get(self, path, callback, **kwargs):
-        """
-        HTTP Get from a link
-        """
-        Controller.instance().get(
-            "/projects/{project_id}/links/{link_id}{path}".format(
-                project_id=self.project().id(),
-                link_id=self._link_id,
-                path=path),
-            callback,
-            **kwargs)
 
     def id(self):
         """
@@ -458,5 +344,12 @@ class Link(QtCore.QObject):
 
     def __json__(self):
         return {
-            "name": "link"
+            "link_id": self._link_id,
+            "nodes": [{"node_id": self._source_node.id(),
+                       "adapter_number": self._source_port.adapterNumber(),
+                       "port_number": self._source_port.portNumber()},
+                      {"node_id": self._destination_node.id(),
+                       "adapter_number": self._destination_port.adapterNumber(),
+                       "port_number": self._destination_port.portNumber()}
+                      ]
         }

@@ -44,33 +44,7 @@ class Node(BaseNode):
         self._always_on = False
 
         # minimum required base settings
-        self._settings = {"name": "", "x": None, "y": None, "z": 1}
-
-    def get(self, path, *args, **kwargs):
-        return self.controllerHttpGet("/nodes/{node_id}{path}".format(node_id=self._node_id, path=path), *args, **kwargs)
-
-    def post(self, path, *args, **kwargs):
-        return self.controllerHttpPost("/nodes/{node_id}{path}".format(node_id=self._node_id, path=path), *args, **kwargs)
-
-    def importFile(self, path, source_path):
-        self.post("/files/{path}".format(path=path), self._importFileCallback, body=pathlib.Path(source_path), timeout=None)
-
-    def _importFileCallback(self, result, error=False, **kwargs):
-        if error:
-            log.error("Error while importing file: {}".format(result["message"]))
-            self.server_error_signal.emit(self.id(), result["message"])
-            return False
-
-    def exportFile(self, path, output_path):
-        self.get("/files/{path}".format(path=path), self._exportFileCallback, context={"path": output_path}, raw=True)
-
-    def _exportFileCallback(self, result, error=False, raw_body=None, context={}, **kwargs):
-        if not error:
-            try:
-                with open(context["path"], "wb+") as f:
-                    f.write(raw_body)
-            except OSError as e:
-                log.erro("Can't write %s: %s", context["path"], str(e))
+        self._settings = {"name": "", "x": None, "y": None, "z": 1, "label": {"text": "text"}}
 
     def settings(self):
         return self._settings
@@ -95,16 +69,11 @@ class Node(BaseNode):
         if node_item.label() is not None:
             data["label"] = node_item.label().dump()
 
-        # Send the change of if stuff changed
-        changed = False
-        for key in data:
-            if key not in self._settings or self._settings[key] != data[key]:
-                changed = True
-
-        if not changed:
-            return
-
-        self._update(data)
+        # FIXME merge node.py and node_item.py together?
+        # so that no syncing like this is required or keep
+        # splitting, e.g. node.py -> model, node_item -> view
+        for k, v in data.items():
+            self._settings[k] = v
 
     def setSymbol(self, symbol):
         self._settings["symbol"] = symbol
@@ -125,47 +94,6 @@ class Node(BaseNode):
     def z(self):
         return self._settings["z"]
 
-    def isAlwaysOn(self):
-        """
-        Whether the node is always on.
-
-        :returns: boolean
-        """
-
-        return self._always_on
-
-    def consoleCommand(self, console_type=None):
-        """
-        :returns: The console command for this host
-        """
-
-        from .main_window import MainWindow
-        general_settings = MainWindow.instance().settings()
-
-        if console_type != "telnet":
-            console_type = self.consoleType()
-            if console_type == "vnc":
-                return general_settings["vnc_console_command"]
-            if console_type == "spice":
-                return general_settings["spice_console_command"]
-        return general_settings["telnet_console_command"]
-
-    def consoleType(self):
-        """
-        Get the console type (serial, telnet or VNC)
-        """
-        console_type = "telnet"
-        if "console_type" in self.settings():
-            return self.settings()["console_type"]
-        return console_type
-
-    def consoleHost(self):
-
-        host = self.settings()["console_host"]
-        if host is None or host == "::" or host == "0.0.0.0":
-            host = Controller.instance().host()
-        return host
-
     def node_id(self):
         """
         Return the ID of this device
@@ -174,96 +102,6 @@ class Node(BaseNode):
         """
 
         return self._node_id
-
-    def nodeDir(self):
-        """
-        Return the working directory of this node
-
-        :returns: identifier (string)
-        """
-
-        return self._node_directory
-
-    def commandLine(self):
-        """
-        Return the command line used to run this node
-
-        :returns: identifier (string)
-        """
-
-        return self._command_line
-
-    def _prepareBody(self, params):
-        """
-        :returns: Body for Create and update
-        """
-        assert self._node_id is not None
-        body = {"properties": {},
-                "node_type": self.URL_PREFIX,
-                "node_id": self._node_id}
-
-        # We have two kind of properties. The general properties common to all
-        # nodes and the specific that we need to put in the properties field
-        node_general_properties = ("name", "console", "console_type", "x", "y", "z", "symbol", "label", "port_name_format", "port_segment_size", "first_port_name")
-        # No need to send this back to the server because it's read only
-        ignore_properties = ("console_host", "symbol_url", "width", "height", "node_id")
-        for key, value in params.items():
-            if key in node_general_properties:
-                body[key] = value
-            elif key in ignore_properties:
-                pass
-            else:
-                body["properties"][key] = value
-
-        return body
-
-    def _update(self, params, timeout=60):
-        """
-        Update the node on the controller
-        """
-
-        log.debug("{} is updating settings: {}".format(self.name(), params))
-        body = self._prepareBody(params)
-        self.controllerHttpPut("/nodes/{node_id}".format(node_id=self._node_id), self.updateNodeCallback, body=body, timeout=timeout, showProgress=False)
-
-    def updateNodeCallback(self, result, error=False, **kwargs):
-        """
-        Callback for update.
-
-        :param result: server response (dict)
-        :param error: indicates an error (boolean)
-        """
-
-        if error:
-            self.server_error_signal.emit(self.id(), result["message"])
-            return False
-
-        result = self._parseResponse(result)
-
-        self._updateCallback(result)
-        self.updated_signal.emit()
-        return True
-
-    def duplicate(self, x, y, z):
-        """
-        Duplicate the node
-        """
-        body = {
-            "x": int(x),
-            "y": int(y),
-            "z": int(z)
-        }
-        self.controllerHttpPost("/nodes/{node_id}/duplicate".format(
-            node_id=self._node_id),
-            self._duplicateCallback,
-            body=body,
-            timeout=None)
-
-    def _duplicateCallback(self, result, error=False, **kwargs):
-        if error:
-            if "message" in result:
-                log.error("Error while duplicating: {}".format(result["message"]))
-            return
 
     def _parseResponse(self, result):
         """
@@ -316,22 +154,6 @@ class Node(BaseNode):
             new_port = None
 
             # Update port if already exist
-            # for old_port in old_ports:
-            #     if old_port.adapterNumber() == port["adapter_number"] and old_port.portNumber() == port["port_number"] and old_port.name() == port["name"]:
-            #         new_port = old_port
-            #         old_ports.remove(old_port)
-            #         break
-            #
-            # if new_port is None:
-            #     new_port = EthernetPort("name")
-            # new_port.setShortName("short_name")
-            # new_port.setAdapterNumber(1)
-            # new_port.setPortNumber(1)
-            # new_port.setDataLinkTypes("data_link_types")
-            # new_port.setStatus(self.status())
-            # self._ports.append(new_port)
-
-            # Update port if already exist
             for old_port in old_ports:
                 if old_port.adapterNumber() == port["adapter_number"] and old_port.portNumber() == port[
                     "port_number"] and old_port.name() == port["name"]:
@@ -375,19 +197,6 @@ class Node(BaseNode):
             self.created_signal.emit(self.id())
             self._module.addNode(self)
 
-    def _createCallback(self, result):
-        """
-        Create callback compatible with the compute api.
-        """
-        pass
-
-    def _updateCallback(self, result):
-        """
-        Update callback compatible with the compute api.
-        """
-
-        pass
-
     def delete(self, skip_controller=False):
         """
         Deletes this node instance.
@@ -395,165 +204,9 @@ class Node(BaseNode):
         :param skip_controller: True to not delete on the controller (often it's when it's already deleted on the server)
         """
 
-        if not skip_controller:
-            self.controllerHttpDelete("/nodes/{node_id}".format(node_id=self._node_id), self._deleteCallback)
-        else:
-            self.deleted_signal.emit()
-            self._module.removeNode(self)
-
-    def _deleteCallback(self, result, error=False, **kwargs):
-        """
-        Callback for delete.
-
-        :param result: server response (dict)
-        :param error: indicates an error (boolean)
-        """
-
-        if error:
-            log.error("error while deleting {}: {}".format(self.name(), result["message"]))
-            self.server_error_signal.emit(self.id(), result["message"])
-        # delete the node even if there is an error on server side
         self.deleted_signal.emit()
         self._module.removeNode(self)
 
-    def isStarted(self):
-        """
-        :returns: Boolean True if started
-        """
-        return self.status() == Node.started
-
-    def start(self):
-        """
-        Starts this node instance.
-        """
-
-        if self.isStarted():
-            log.debug("{} is already running".format(self.name()))
-            return
-
-        log.debug("{} is starting".format(self.name()))
-        self.controllerHttpPost("/nodes/{node_id}/start".format(node_id=self._node_id), self._startCallback, timeout=None, progressText="{} is starting".format(self.name()))
-
-    def _startCallback(self, result, error=False, **kwargs):
-        """
-        Callback for start.
-
-        :param result: server response (dict)
-        :param error: indicates an error (boolean)
-        """
-
-        if error:
-            log.error("error while starting {}: {}".format(self.name(), result["message"]))
-            self.server_error_signal.emit(self.id(), result["message"])
-        else:
-            self._parseResponse(result)
-
-    def stop(self):
-        """
-        Stops this node instance.
-        """
-
-        if self.status() == Node.stopped:
-            log.debug("{} is already stopped".format(self.name()))
-            return
-
-        log.debug("{} is stopping".format(self.name()))
-        self.controllerHttpPost("/nodes/{node_id}/stop".format(node_id=self._node_id), self._stopCallback, progressText="{} is stopping".format(self.name()), timeout=None)
-
-    def _stopCallback(self, result, error=False, **kwargs):
-        """
-        Callback for stop.
-
-        :param result: server response (dict)
-        :param error: indicates an error (boolean)
-        """
-
-        if error:
-            log.error("error while stopping {}: {}".format(self.name(), result["message"]))
-            self.server_error_signal.emit(self.id(), result["message"])
-            # To avoid blocking the client we consider node as stopped if the node no longer exists or server doesn't answer
-            if "status" not in result or result["status"] == 404:
-                self.setStatus(Node.stopped)
-        else:
-            self._parseResponse(result)
-
-    def suspend(self):
-        """
-        Suspends this node.
-        """
-
-        if self.status() == Node.suspended:
-            log.debug("{} is already suspended".format(self.name()))
-            return
-
-        log.debug("{} is being suspended".format(self.name()))
-        self.controllerHttpPost("/nodes/{node_id}/suspend".format(node_id=self._node_id), self._suspendCallback, timeout=None)
-
-    def _suspendCallback(self, result, error=False, **kwargs):
-        """
-        Callback for suspend.
-
-        :param result: server response (dict)
-        :param error: indicates an error (boolean)
-        """
-
-        if error:
-            log.error("error while suspending {}: {}".format(self.name(), result["message"]))
-            self.server_error_signal.emit(self.id(), result["message"])
-        else:
-            self._parseResponse(result)
-
-    def reload(self):
-        """
-        Reloads this node instance.
-        """
-
-        log.debug("{} is being reloaded".format(self.name()))
-        self.controllerHttpPost("/nodes/{node_id}/reload".format(node_id=self._node_id), self._reloadCallback, timeout=None)
-
-    def _reloadCallback(self, result, error=False, **kwargs):
-        """
-        Callback for reload.
-
-        :param result: server response (dict)
-        :param error: indicates an error (boolean)
-        """
-
-        if error:
-            log.error("error while reloading {}: {}".format(self.name(), result["message"]))
-            self.server_error_signal.emit(self.id(), result["message"])
-
-    def openConsole(self, command=None, aux=False):
-        if command is None:
-            if aux:
-                command = self.consoleCommand(console_type="telnet")
-            else:
-                command = self.consoleCommand()
-
-        console_type = "telnet"
-
-        if aux:
-            console_port = self.auxConsole()
-            if console_port is None:
-                raise ValueError("AUX console port not allocated for {}".format(self.name()))
-            # Aux console is always telnet
-            console_type = "telnet"
-        else:
-            console_port = self.console()
-            if "console_type" in self.settings():
-                console_type = self.settings()["console_type"]
-
-        if console_type == "telnet":
-            from .telnet_console import nodeTelnetConsole
-            nodeTelnetConsole(self, console_port, command)
-        elif console_type == "vnc":
-            from .vnc_console import vncConsole
-            vncConsole(self.consoleHost(), console_port, command)
-        elif console_type == "spice":
-            from .spice_console import spiceConsole
-            spiceConsole(self.consoleHost(), console_port, command)
-        elif console_type == "http" or console_type == "https":
-            QtGui.QDesktopServices.openUrl(QtCore.QUrl("{console_type}://{host}:{port}{path}".format(console_type=console_type, host=self.consoleHost(), port=console_port, path=self.consoleHttpPath())))
 
     def bringToFront(self):
         """

@@ -68,6 +68,8 @@ class DockerVM(Node):
         :param new_settings: settings dictionary
         """
 
+        print(new_settings)
+
         params = {}
         for name, value in new_settings.items():
             if name in self._settings and self._settings[name] != value:
@@ -94,7 +96,7 @@ class DockerVM(Node):
            id=self.id(),
            node_id=self._node_id,
            state=state,
-           host=self.compute().name(),
+           host="host",
            console=self._settings["console"],
            console_type=self._settings["console_type"])
 
@@ -174,8 +176,8 @@ class DockerVM(Node):
 
     def __json__(self):
         return {
-            "name": "name",
-            "node_id": self._id,
+            "name": self.name(),
+            "node_id": self.id(),
             "container_id": "self._cid",
             "project_id": self._project.id(),
             "image": "self._image",
@@ -186,5 +188,6 @@ class DockerVM(Node):
             "node_type": "docker",
             "x": self.x(),
             "y": self.y(),
-            "z": self.z()
+            "z": self.z(),
+            "symbol": self._settings["symbol"]
         }

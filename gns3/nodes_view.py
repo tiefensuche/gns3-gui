@@ -24,6 +24,9 @@ import tempfile
 import json
 import sip
 
+from gns3.symbol import Symbol
+from gns3.symbols import Symbols
+
 from .qt import QtCore, QtGui, QtWidgets, qpartial
 from .modules import MODULES
 from .controller import Controller
@@ -88,8 +91,6 @@ class NodesView(QtWidgets.QTreeWidget):
         :param search: filter
         """
 
-        if not Controller.instance().connected():
-            return
         self.setIconSize(QtCore.QSize(32, 32))
         self._current_category = category
         self._current_search = search
@@ -109,7 +110,10 @@ class NodesView(QtWidgets.QTreeWidget):
                 item.setData(0, QtCore.Qt.UserRole, appliance["appliance_id"])
                 item.setData(1, QtCore.Qt.UserRole, "appliance")
                 item.setSizeHint(0, QtCore.QSize(32, 32))
-                Controller.instance().getSymbolIcon(appliance.get("symbol"), qpartial(self._setItemIcon, item), fallback=":/symbols/" + appliance["category"] + ".svg")
+                symbols = Symbols()
+                path = symbols.get_path(appliance.get("symbol"))
+                item.setIcon(0, QtGui.QIcon(path))
+                # Controller.instance().getSymbolIcon(appliance.get("symbol"), qpartial(self._setItemIcon, item), fallback=":/symbols/" + appliance["category"] + ".svg")
 
         for appliance in ApplianceManager.instance().appliance_templates():
             if not appliance["builtin"] and not self._show_my_available_appliances:
@@ -130,7 +134,10 @@ class NodesView(QtWidgets.QTreeWidget):
             item.setData(0, QtCore.Qt.UserRole, appliance)
             item.setData(1, QtCore.Qt.UserRole, "appliance_template")
             item.setSizeHint(0, QtCore.QSize(32, 32))
-            Controller.instance().getSymbolIcon(appliance.get("symbol"), qpartial(self._setItemIcon, item), fallback=":/symbols/" + appliance["category"] + ".svg")
+            symbols = Symbols()
+            path = symbols.get_path(appliance.get("symbol"))
+            item.setIcon(0, QtGui.QIcon(path))
+            # Controller.instance().getSymbolIcon(appliance.get("symbol"), qpartial(self._setItemIcon, item), fallback=":/symbols/" + appliance["category"] + ".svg")
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
     def _setItemIcon(self, item, icon):

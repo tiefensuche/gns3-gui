@@ -21,6 +21,7 @@ Graphical representation of a node on the QGraphicsScene.
 
 import sip
 
+from gns3.symbols import Symbols
 from ..qt import QtCore, QtGui, QtWidgets, QtSvg, qslot
 from ..qt.qimage_svg_renderer import QImageSvgRenderer
 from .note_item import NoteItem
@@ -104,8 +105,7 @@ class NodeItem(QtSvg.QGraphicsSvgItem):
             self._snapToGrid()
         self._settings = self._main_window.uiGraphicsView.settings()
 
-        if node.initialized():
-            self.createdSlot(node.id())
+        self.createdSlot(node.id())
 
     def _snapToGrid(self):
         mid_x = self.boundingRect().width() / 2
@@ -136,7 +136,10 @@ class NodeItem(QtSvg.QGraphicsSvgItem):
             renderer.setObjectName("symbol_loading")
             self.setSharedRenderer(renderer)
 
-            Controller.instance().getStatic(Symbol(symbol_id=symbol).url(), self._symbolLoadedCallback)
+            symbols = Symbols()
+            path = symbols.get_path(symbol)
+            self._symbolLoadedCallback(path)
+            # Controller.instance().getStatic(Symbol(symbol_id=symbol).url(), self._symbolLoadedCallback)
 
     def symbol(self):
         return self._symbol
@@ -359,7 +362,8 @@ class NodeItem(QtSvg.QGraphicsSvgItem):
             self._node_label = NoteItem(self)
             self._node_label.item_unselected_signal.connect(self._labelUnselectedSlot)
             self._node_label.setEditable(False)
-            self._updateLabel()
+            # FIXME keep it like this?
+            self._node_label.setPlainText(self._node.name())
             self._node.setSettingValue("label", self._node_label.dump())
 
     def _updateLabel(self):
@@ -369,6 +373,7 @@ class NodeItem(QtSvg.QGraphicsSvgItem):
         if not self._node_label:
             return
         self._node_label.setPlainText(self._node.name())
+
         label_data = self._node.settings().get("label")
 
         if self._node_label.toPlainText() != label_data["text"]:
